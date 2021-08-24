@@ -4,11 +4,15 @@
 #include <fcntl.h>
 #include <stdio.h>
 #include <unistd.h>
+#include <string.h>
 
-int main(){
-    int src_file = open("input.txt", O_RDONLY);
-    int dst_file = open("output.txt", O_WRONLY | O_CREAT, S_IRWXU|S_IRWXO|S_IRWXG);
+int main(int argc, char *argv[]){
+    int src_file = open(argv[1], O_RDONLY);
 
+    char* output_name = (char*)malloc(100*sizeof(char)); 
+    sprintf(output_name, "1_%s", argv[1]);
+    //printf("%s", output_name);
+    int dst_file = open(output_name, O_WRONLY | O_CREAT, S_IRWXU|S_IRWXO|S_IRWXG);
     int length = lseek(src_file, 0, SEEK_END);
 
     
@@ -58,5 +62,5 @@ int main(){
 
         char_read += bytes_read;
     }
-    
+    printf("\n");  
 }
