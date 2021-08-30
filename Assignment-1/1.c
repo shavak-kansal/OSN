@@ -6,21 +6,27 @@
 #include <unistd.h>
 #include <string.h>
 
-int main(int argc, char *argv[]){
-    int src_file = open(argv[1], O_RDONLY);
+int main(int argc, char *argv[]){  
+
+    int last_index = -1;
+
+    for(int i=0;i<strlen(argv[1]);i++){
+        if(argv[1][i] == '/')
+            last_index = i;
+    }
+
+    int src_file = open(argv[1], O_RDONLY); 
     if(src_file == -1){
         write(1, "error opening input file", 25);
         return 0;
     }
 
     char* output_name = (char*)malloc(100*sizeof(char)); 
-    sprintf(output_name, "1_%s", argv[1]);
-    //printf("%s", output_name);
+    sprintf(output_name, "1_%s", (argv[1]+last_index+1));
+
     int dst_file = open(output_name, O_WRONLY | O_CREAT, S_IRWXU|S_IRWXO|S_IRWXG);
     int length = lseek(src_file, 0, SEEK_END);
 
-    
-    //printf("%d", length);
     size_t size=1024;
 
     char og[size+1];
