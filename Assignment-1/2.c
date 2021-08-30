@@ -9,6 +9,10 @@
 int main(int argc, char *argv[]){
     int src_file = open(argv[1], O_RDONLY);
 
+    if(src_file == -1){
+        write(1, "error opening input file", 25);
+        return 0;
+    }
     char* output_name = (char*)malloc(100*sizeof(char)); 
     sprintf(output_name, "2_%s", argv[1]);
     int dst_file = open(output_name, O_WRONLY | O_CREAT, S_IRWXU|S_IRWXO|S_IRWXG);
@@ -27,7 +31,7 @@ int main(int argc, char *argv[]){
 
     int to_read = size;
 
-    lseek(src_file,a*b ,SEEK_SET);
+    lseek(src_file,b*length ,SEEK_SET);
 
     if(length < size){
         lseek(src_file, -length, SEEK_CUR);
@@ -44,7 +48,12 @@ int main(int argc, char *argv[]){
 
     while(char_read<length)
     {
-        printf("\rProgress: %.2f%%", (char_read*100.0)/length);
+        char *progress_bar = (char*)malloc(sizeof(char)*100);
+
+        sprintf(progress_bar , "\rProgress: %.2f%%", (char_read*100.0)/length);
+        write(1, progress_bar, 100);
+        fflush(stdout);
+        //printf("\rProgress: %.2f%%", (char_read*100.0)/length);
         int bytes_read = read(src_file, og, to_read);
 
         for(int i=0;i<bytes_read;i++){
@@ -68,4 +77,7 @@ int main(int argc, char *argv[]){
         char_read += bytes_read;
     }
     printf("\n");  
+
+    close(src_file);
+    close(dst_file);
 }
