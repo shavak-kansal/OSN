@@ -30,15 +30,17 @@ int main(int argc, char *argv[]){
         char* output_name = (char*)malloc(100*sizeof(char)); 
         sprintf(output_name, "Assignment/1_%s", (argv[1]+last_index+1));
 
-        printf("%s\n", output_name);
+        //printf("%s\n", output_name);
 
         struct stat perms_data;
 
         int err = stat(output_name, &perms_data);
 
         if(err == -1){
-            write(1, "Error related to file", 22);
-            return 0;
+            // write(1, "Error related to file", 22);
+            // return 0;
+            perror("Error");
+            return -1;
         }
         
         write(1, "User has read permission on output_file_1: ", 44);
@@ -105,14 +107,16 @@ int main(int argc, char *argv[]){
         char* output_name = (char*)malloc(100*sizeof(char)); 
         sprintf(output_name, "Assignment/2_%s", (argv[1]+last_index+1));
 
-        printf("%s\n", output_name);
+        //printf("%s\n", output_name);
         struct stat perms_data;
 
         int err = stat(output_name, &perms_data);
 
         if(err == -1){
-            write(1, "Error related to file", 22);
-            return 0;
+            // write(1, "Error related to file", 22);
+            // return 0;
+            perror("Error");
+            return -1;
         }
         
         write(1, "User has read permission on output_file_2: ", 44);
@@ -180,8 +184,10 @@ int main(int argc, char *argv[]){
         int err = stat("Assignment", &perms_data);
 
         if(err == -1){
-            write(1, "Error related to opening folder", 22);
-            return 0;
+            //write(1, "Error related to opening folder", 22);
+            //return 0;
+            perror("Error");
+            return -1;
         }
         
         write(1, "User has read permission on directory: ", 40);

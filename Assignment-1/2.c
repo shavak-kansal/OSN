@@ -18,8 +18,9 @@ int main(int argc, char *argv[]){
     int src_file = open(argv[1], O_RDONLY);
 
     if(src_file == -1){
-        write(1, "error opening input file", 25);
-        return 0;
+        //write(1, "error opening input file", 25);
+        perror("Error");
+        return -1;
     }
 
     char* output_name = (char*)malloc(100*sizeof(char)); 
@@ -29,8 +30,9 @@ int main(int argc, char *argv[]){
 
 
     if(dst_file == -1){
-        write(1, "error opening output file", 25);
-        return 0;
+        //write(1, "error opening output file", 25);
+        perror("Error");
+        return -1;
     }
     
     int length = lseek(src_file, 0, SEEK_END);
