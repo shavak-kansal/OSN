@@ -25,6 +25,12 @@ int main(int argc, char *argv[]){
     sprintf(output_name, "1_%s", (argv[1]+last_index+1));
 
     int dst_file = open(output_name, O_WRONLY | O_CREAT, S_IRWXU|S_IRWXO|S_IRWXG);
+
+    if(dst_file == -1){
+        write(1, "error opening output file", 25);
+        return 0;
+    }
+
     int length = lseek(src_file, 0, SEEK_END);
 
     size_t size=1024;
@@ -80,4 +86,7 @@ int main(int argc, char *argv[]){
         char_read += bytes_read;
     }
     printf("\n");  
+
+    close(src_file);
+    close(dst_file);
 }

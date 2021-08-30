@@ -24,6 +24,12 @@ int main(int argc, char *argv[]){
     char* output_name = (char*)malloc(100*sizeof(char)); 
     sprintf(output_name, "2_%s", (argv[1]+last_index+1));
     int dst_file = open(output_name, O_WRONLY | O_CREAT, S_IRWXU|S_IRWXO|S_IRWXG);
+
+    if(dst_file == -1){
+        write(1, "error opening output file", 25);
+        return 0;
+    }
+    
     int length = lseek(src_file, 0, SEEK_END);
 
     int a, b;
