@@ -22,7 +22,8 @@ int main(int argc, char *argv[]){
     }
 
     char* output_name = (char*)malloc(100*sizeof(char)); 
-    sprintf(output_name, "1_%s", (argv[1]+last_index+1));
+    mkdir("Assignment", 0700);
+    sprintf(output_name, "Assignment/1_%s", (argv[1]+last_index+1));
 
     int dst_file = open(output_name, O_WRONLY | O_CREAT, S_IRWXU|S_IRWXO|S_IRWXG);
 
