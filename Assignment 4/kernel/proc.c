@@ -452,9 +452,7 @@ scheduler(void)
     for(p = proc; p < &proc[NPROC]; p++) {
       acquire(&p->lock);
       if(p->state == RUNNABLE) {
-        // Switch to chosen process.  It is the process's job
-        // to release its lock and then reacquire it
-        // before jumping back to us.
+        //printf("low process : %d name : %s", p->pid, p->name);
         p->state = RUNNING;
         c->proc = p;
         swtch(&c->context, &p->context);
@@ -467,35 +465,54 @@ scheduler(void)
     }
   }
 }
-#else ifdef FCFS
+#elif FCFS1
+
 void scheduler(void){
   struct proc *p;
   struct cpu *c = mycpu();
+  struct proc *ref = 0;
   int min_time = -1;
   c->proc = 0;
-  intr_on();
+  
 
   for(;;){
     // Avoid deadlock by ensuring that devices can interrupt.
-
+    intr_on();
     for(p = proc; p < &proc[NPROC]; p++) {
+      //printf("process time : %d\n name %s", p->birthtime, p->name);
       acquire(&p->lock);
-      if(p->state == RUNNABLE) {
-        // Switch to chosen process.  It is the process's job
-        // to release its lock and then reacquire it
-        // before jumping back to us.
-        p->state = RUNNING;
-        c->proc = p;
-        swtch(&c->context, &p->context);
 
-        // Process is done running for now.
-        // It should have changed its p->state before coming back.
-        c->proc = 0;
+      if(p->state == RUNNABLE) {
+        
+        if(min_time == -1){
+          min_time = p->birthtime;
+          ref = p;
+        }
+        else if(p->birthtime < min_time){
+          min_time = p->birthtime;
+          release(&ref->lock);
+          ref = p;
+        }
+        else release(&p->lock);
       }
-      release(&p->lock);
+      else release(&p->lock);
     }
+    if(ref != 0){
+      ref->state = RUNNING;
+      c->proc = ref;
+      swtch(&c->context, &ref->context);
+
+      c->proc = 0;
+      min_time = -1;
+      release(&ref->lock);
+      ref = 0;
+    }
+    else 
+      continue;
   }
 }
+#elif FCFS 
+void
 scheduler(void)
 {
   struct proc *p;
@@ -503,28 +520,39 @@ scheduler(void)
   
   c->proc = 0;
   for(;;){
-    // Avoid deadlock by ensuring that devices can interrupt.
+  
     intr_on();
-
+    struct proc *low = 0;
+    
     for(p = proc; p < &proc[NPROC]; p++) {
       acquire(&p->lock);
-      if(p->state == RUNNABLE) {
-        // Switch to chosen process.  It is the process's job
-        // to release its lock and then reacquire it
-        // before jumping back to us.
-        p->state = RUNNING;
-        c->proc = p;
-        swtch(&c->context, &p->context);
 
-        // Process is done running for now.
-        // It should have changed its p->state before coming back.
-        c->proc = 0;
+      if(p->state == RUNNABLE) {
+        if(low == 0){
+          low = p;
+        }
+        else if(p->birthtime < low->birthtime){
+          release(&low->lock);
+          low = p;
+        }
+        else release(&p->lock);
       }
-      release(&p->lock);
+      else release(&p->lock);
     }
+
+    if(low != 0){
+      //printf("low process : %d name : %s", low->pid, low->name);
+      low->state = RUNNING;
+      c->proc = low;
+      swtch(&c->context, &low->context);
+
+      c->proc = 0;
+      release(&low->lock);
+    }
+    else 
+      continue;
   }
 }
-
 #endif
 
 
