@@ -108,3 +108,16 @@ sys_trace(void)
 
   return 0;  
 }
+
+uint64 
+set_priority(void)
+{
+  
+  int new_priority;
+  int procid;
+
+  argint(0, &new_priority);
+  argint(1, &procid);
+
+  _setpriority(new_priority, procid);
+}

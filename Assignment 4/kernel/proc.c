@@ -616,6 +616,8 @@ scheduler(void)
     if(low != 0){
       //printf("low process : %d name : %s", low->pid, low->name);
       low->state = RUNNING;
+      low->runtime=0;
+      low->sched1=ticks;
       c->proc = low;
       swtch(&c->context, &low->context);
 
@@ -820,5 +822,16 @@ procdump(void)
       state = "???";
     printf("%d %s %s", p->pid, state, p->name);
     printf("\n");
+  }
+}
+
+void _setpriority(int pid, int priority)
+{
+  struct proc *p;
+  for(p = proc; p < &proc[NPROC]; p++){
+    if(p->pid == pid){
+      p->staticPriority = priority;
+      break;
+    }
   }
 }

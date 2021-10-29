@@ -21,3 +21,4 @@
 #define SYS_mkdir  20 // mkdir - 1 
 #define SYS_close  21 // close - 1
 #define SYS_trace 22 // trace - 1
+#define SYS_set_priority 23 // set_priority - 2
