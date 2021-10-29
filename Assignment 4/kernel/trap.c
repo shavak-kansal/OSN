@@ -77,9 +77,11 @@ usertrap(void)
     exit(-1);
 
   // give up the CPU if this is a timer interrupt.
-  if(which_dev == 2)
-    yield();
-
+  #ifdef DEFAULT_SCHEDULER
+    if(which_dev == 2)
+      yield();
+  #endif
+  
   usertrapret();
 }
 
