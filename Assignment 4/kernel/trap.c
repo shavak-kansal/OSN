@@ -161,11 +161,18 @@ kerneltrap()
   w_sstatus(sstatus);
 }
 
+
+
 void
 clockintr()
 {
   acquire(&tickslock);
   ticks++;
+
+  #ifdef PBS 
+    RunningTime();
+  #endif
+  
   wakeup(&ticks);
   release(&tickslock);
 }

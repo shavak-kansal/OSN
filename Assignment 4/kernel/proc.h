@@ -106,5 +106,16 @@ struct proc {
   struct inode *cwd;           // Current directory
   char name[16];               // Process name (debugging)
   int trace_mask;
+  
   uint birthtime;
+
+  //#ifdef PBS
+  uint staticPriority;
+  uint dynamicPriority;
+  uint niceness;
+
+  uint sched1;
+  uint runtime;
+  uint sched2;
+  //#endif
 };

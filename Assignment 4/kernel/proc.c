@@ -121,6 +121,11 @@ found:
   p->state = USED;
   p->birthtime = ticks;
 
+  //#ifdef PBS
+  p->staticPriority = 60;
+  p->niceness = 5;
+  //#endif
+
   // Allocate a trapframe page.
   if((p->trapframe = (struct trapframe *)kalloc()) == 0){
     freeproc(p);
@@ -437,6 +442,20 @@ wait(uint64 addr)
 //  - eventually that process transfers control
 //    via swtch back to the scheduler.
 
+void RunningTime(void)
+{
+  struct proc *p;
+
+  for(p = proc; p < &proc[NPROC]; p++) {
+    acquire(&p->lock);
+    if(p->state == RUNNING)
+      p->runtime++;    
+    release(&p->lock);
+  }
+
+  
+}
+
 #ifdef DEFAULT_SCHEDULER
 void
 scheduler(void)
@@ -553,6 +572,60 @@ scheduler(void)
       continue;
   }
 }
+//#endif
+#elif PBS 
+void
+scheduler(void)
+{
+  //printf("PBS Scheduler");
+  struct proc *p;
+  struct cpu *c = mycpu();
+  
+  c->proc = 0;
+
+  for(;;){
+  
+    intr_on();
+    struct proc *low = 0;
+    
+    for(p = proc; p < &proc[NPROC]; p++) {
+      acquire(&p->lock);
+
+      if(p->state == RUNNABLE) {
+
+        p->niceness = (10 * (p->sched2-p->sched1-p->runtime))/(p->sched2-p->sched1);
+        int temp = (100<(p->staticPriority-p->niceness+5))?100:(p->staticPriority-p->niceness+5);
+        
+        if(temp < 0) temp = 0;
+
+        p->dynamicPriority = temp;
+
+        if(low == 0){
+          low = p;
+        }
+        else if(p->dynamicPriority < low->dynamicPriority){
+          release(&low->lock);
+          low = p;
+        }
+
+        else release(&p->lock);
+      }
+      else release(&p->lock);
+    }
+
+    if(low != 0){
+      //printf("low process : %d name : %s", low->pid, low->name);
+      low->state = RUNNING;
+      c->proc = low;
+      swtch(&c->context, &low->context);
+
+      c->proc = 0;
+      release(&low->lock);
+    }
+    else 
+      continue;
+  }
+}
 #endif
 
 
@@ -590,6 +663,7 @@ yield(void)
   struct proc *p = myproc();
   acquire(&p->lock);
   p->state = RUNNABLE;
+  p->sched2 = ticks;
   sched();
   release(&p->lock);
 }
@@ -658,6 +732,7 @@ wakeup(void *chan)
       acquire(&p->lock);
       if(p->state == SLEEPING && p->chan == chan) {
         p->state = RUNNABLE;
+        p->sched2 = ticks;
       }
       release(&p->lock);
     }
@@ -679,6 +754,7 @@ kill(int pid)
       if(p->state == SLEEPING){
         // Wake process from sleep().
         p->state = RUNNABLE;
+        p->sched2 = ticks;
       }
       release(&p->lock);
       return 0;
