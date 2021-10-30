@@ -7,8 +7,8 @@
 #include "syscall.h"
 #include "defs.h"
 
-char *syscall_names[22] = {"fork","exit","wait","pipe","read","kill","exec","fstat","chdir","dup","getpid","sbrk","sleep","uptime","open","write","mknod","unlink","link","mkdir", "close" , "trace"};
-int syscall_argcnt[22] = {0,1,1,1,3,1,2,2,1,1,0,1,1,0,2,3,3,1,2,1,1,1};
+char *syscall_names[23] = {"fork","exit","wait","pipe","read","kill","exec","fstat","chdir","dup","getpid","sbrk","sleep","uptime","open","write","mknod","unlink","link","mkdir", "close" , "trace", "set_priority"};
+int syscall_argcnt[23] = {0,1,1,1,3,1,2,2,1,1,0,1,1,0,2,3,3,1,2,1,1,1,2};
 // Fetch the uint64 at addr from the current process.
 int
 fetchaddr(uint64 addr, uint64 *ip)
@@ -107,7 +107,7 @@ extern uint64 sys_wait(void);
 extern uint64 sys_write(void);
 extern uint64 sys_uptime(void);
 extern uint64 sys_trace(void);
-extern uint64 setpriority(void);
+extern uint64 sys_set_priority(void);
 
 static uint64 (*syscalls[])(void) = {
 [SYS_fork]    sys_fork,
@@ -132,7 +132,7 @@ static uint64 (*syscalls[])(void) = {
 [SYS_mkdir]   sys_mkdir,
 [SYS_close]   sys_close,
 [SYS_trace] sys_trace,
-[SYS_setpriority] setpriority
+[SYS_set_priority] sys_set_priority
 };
 
 
@@ -142,6 +142,8 @@ syscall(void)
   int num;
   struct proc *p = myproc();
 
+  int a;
+  argint(0, &a);
   num = p->trapframe->a7;
   if(num > 0 && num < NELEM(syscalls) && syscalls[num]) {
     p->trapframe->a0 = syscalls[num]();
@@ -151,12 +153,14 @@ syscall(void)
     if((mask ) & (1 << num)){
       printf("syscall %s (", syscall_names[num-1]); 
       
-      for(int i=0;i<syscall_argcnt[num-1];i++){
+      printf("%d ", a);
+
+      for(int i=1;i<syscall_argcnt[num-1];i++){
         int n;
         argint(i, &n);
         printf("%d ", n);
       }
-      printf(") -> %d\n", p->trapframe->a0);
+      printf("\b) -> %d\n", p->trapframe->a0);
 
     }
   } else {

@@ -80,8 +80,22 @@ usertrap(void)
   #ifdef DEFAULT_SCHEDULER
     if(which_dev == 2)
       yield();
+  #elif MLFQ 
+  if(which_dev == 2 /* && myproc() != 0 && myproc()->state == RUNNING */){
+    struct proc *p1 = myproc();
+    //acquire(&p1->lock);
+    if(p1->timeinQ <=0){
+      //printf("doing something ig : user");
+      if(p1->level<4){
+        p1->level++;
+        //release(&p1->lock);
+      }
+      else 
+        //release(&p1->lock);
+      yield();
+    }
+  }
   #endif
-  
   usertrapret();
 }
 
@@ -155,7 +169,25 @@ kerneltrap()
   #ifdef DEFAULT_SCHEDULER
   if(which_dev == 2 && myproc() != 0 && myproc()->state == RUNNING)
     yield();
+  //#endif
+  #elif MLFQ 
+  if(which_dev == 2 && myproc() != 0 && myproc()->state == RUNNING){
+    struct proc *p = myproc();
+    printf("doing something ig : kernel");
+    //acquire(&p->lock);
+    if(p->timeinQ <=0){
+      if(p->level<4){
+        p->level++;
+        //release(&p->lock);
+      }
+      else 
+        //release(&p->lock);
+      yield();
+    }
+  }
   #endif
+
+
   
   // the yield() may have caused some traps to occur,
   // so restore trap registers for use by kernelvec.S's sepc instruction.
@@ -172,6 +204,8 @@ clockintr()
   ticks++;
 
   #ifdef PBS 
+    RunningTime();
+  #elif MLFQ
     RunningTime();
   #endif
   

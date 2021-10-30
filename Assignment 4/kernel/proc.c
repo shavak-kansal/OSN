@@ -10,6 +10,8 @@ struct cpu cpus[NCPU];
 
 struct proc proc[NPROC];
 
+ProcQueue mfq[5];
+
 struct proc *initproc;
 
 int nextpid = 1;
@@ -53,6 +55,18 @@ procinit(void)
   for(p = proc; p < &proc[NPROC]; p++) {
       initlock(&p->lock, "proc");
       p->kstack = KSTACK((int) (p - proc));
+  }
+}
+
+void 
+pq_init(void){
+  for(int i=0;i<5;i++){
+    mfq[i].front = 0;
+    mfq[i].rear = 0;
+  }
+
+  for(int i=0;i<NPROC;i++){
+    mfq->list[i] = 0;
   }
 }
 
@@ -120,6 +134,11 @@ found:
   p->pid = allocpid();
   p->state = USED;
   p->birthtime = ticks;
+
+  p->inQ = 0;
+  p->qEnter = ticks;
+  // p->level = 0;
+  // p->timeinQ = 1 << p->level;
 
   //#ifdef PBS
   p->staticPriority = 60;
@@ -448,8 +467,10 @@ void RunningTime(void)
 
   for(p = proc; p < &proc[NPROC]; p++) {
     acquire(&p->lock);
-    if(p->state == RUNNING)
+    if(p->state == RUNNING){
       p->runtime++;    
+      p->timeinQ--;
+    }
     release(&p->lock);
   }
 
@@ -628,6 +649,76 @@ scheduler(void)
       continue;
   }
 }
+//#endif
+#elif MLFQ
+
+void
+scheduler(void)
+{
+  printf("MLFQ Scheduler");
+  struct proc *p;
+  struct cpu *c = mycpu();
+  
+  c->proc = 0;
+
+  for(;;){
+  
+    intr_on();
+    struct proc *low = 0;
+
+    //ageing();
+
+    for(p = proc; p < &proc[NPROC]; p++) {
+      acquire(&p->lock);
+      if((p->state == RUNNABLE) && (!p->inQ)){
+        p->inQ = 1;
+        ProcQueueEnqueue(&(mfq[p->level]), p);
+      }
+      release(&p->lock);
+    }
+    int done = 0;
+
+    for(int i=0;i<5 && (!done);i++){
+      struct proc *temp = ProcQueueDequeue(&(mfq[i]));
+      
+
+      while(temp!=0){
+        acquire(&temp->lock);
+        temp->inQ = 0;
+
+        if(temp->state == RUNNABLE){
+          temp->qEnter = ticks;
+          low = temp;
+          done = 1;
+          goto label1;
+        }
+
+        release(&temp->lock);
+
+        temp = ProcQueueDequeue(&(mfq[i]));
+      }
+    }
+
+    label1:;
+
+    if(low != 0){
+      //acquire(&low->lock);
+      //printf("low process : %d name : %s\n", low->pid, low->name);
+      low->timeinQ = 1<<p->level;
+      low->state = RUNNING;
+      low->runtime=0;
+      low->sched1=ticks;
+      c->proc = low;
+      swtch(&c->context, &low->context);
+
+      c->proc = 0;
+      low->qEnter = 0;
+      release(&low->lock);
+    }
+    else 
+      continue;
+  }
+}
 #endif
 
 
@@ -644,8 +735,6 @@ sched(void)
   int intena;
   struct proc *p = myproc();
 
-  if(!holding(&p->lock))
-    panic("sched p->lock");
   if(mycpu()->noff != 1)
     panic("sched locks");
   if(p->state == RUNNING)
@@ -687,22 +776,21 @@ forkret(void)
     first = 0;
     fsinit(ROOTDEV);
   }
-
   usertrapret();
 }
+
 
 // Atomically release lock and sleep on chan.
 // Reacquires lock when awakened.
 void
-sleep(void *chan, struct spinlock *lk)
-{
+sleep(void *chan, struct spinlock *lk){
   struct proc *p = myproc();
   
   // Must acquire p->lock in order to
   // change p->state and then call sched.
   // Once we hold p->lock, we can be
   // guaranteed that we won't miss any wakeup
-  // (wakeup locks p->lock),
+  // (wakeup locks p->lock),ML
   // so it's okay to release lk.
 
   acquire(&p->lock);  //DOC: sleeplock1
@@ -825,13 +913,76 @@ procdump(void)
   }
 }
 
-void _setpriority(int pid, int priority)
-{
+int _setpriority(int pid, int priority)
+{ 
+  int temp = 0;
   struct proc *p;
   for(p = proc; p < &proc[NPROC]; p++){
     if(p->pid == pid){
+      temp = p->staticPriority;
       p->staticPriority = priority;
       break;
     }
   }
+  return temp;
 }
+
+void ProcQueueEnqueue(ProcQueue *q, struct proc *p){
+  if(q->front == -1) q->front++;
+  q->rear = (q->rear+1)%NPROC;
+
+  q->list[q->rear] = p;
+}
+
+struct proc* ProcQueueDequeue(ProcQueue *q){
+  if(q->front == -1)
+    return 0;
+
+  struct proc* ret = q->list[q->front];
+  if(q->front == q->rear){
+    q->list[q->front] = 0;
+    q->front = q->rear = -1;
+  }
+  else 
+    q->front = ((q->front+1) % NPROC);
+
+  return ret;
+}
+
+void ProcQueueRemove(ProcQueue *q, int pid){
+
+  int i=q->front;
+
+  while(i<q->rear){
+    if(q->list[i]->pid == pid){
+      struct proc *p = q->list[i]; 
+      q->list[i] = q->list[i+1];
+      q->list[i+1] = p;
+    }
+  }
+  
+  q->list[q->rear] = 0;
+  q->rear--;
+}
+
+void ageing(void){
+  struct proc *p;
+
+  for(p = proc; p < &proc[NPROC]; p++) {
+    acquire(&p->lock);
+    if(p->state == RUNNABLE && (ticks - p->qEnter > 24)){
+      if(p->inQ == 1){
+        ProcQueueRemove(&mfq[p->level], p->pid);        
+        p->inQ = 0;
+      }
+      if(p->level > 0){
+        p->level--;
+        //ProcQueueEnqueue(&mfq[p->level], p);
+        //p->inQ = 1;
+      }
+      p->qEnter = ticks;
+    }
+    release(&p->lock);
+  }
+}
+

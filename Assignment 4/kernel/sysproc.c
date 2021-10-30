@@ -110,7 +110,7 @@ sys_trace(void)
 }
 
 uint64 
-set_priority(void)
+sys_set_priority(void)
 {
   
   int new_priority;
@@ -119,5 +119,6 @@ set_priority(void)
   argint(0, &new_priority);
   argint(1, &procid);
 
-  _setpriority(new_priority, procid);
+  int ret = _setpriority(new_priority, procid);
+  return ret;
 }

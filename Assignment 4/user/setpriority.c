@@ -8,6 +8,6 @@ int main(int argc, char *argv[]){
     int pid = atoi(argv[2]);
     int priority = atoi(argv[1]);
 
-    setpriority(priority, pid);
+    set_priority(priority, pid);
     exit(0);
 }

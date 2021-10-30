@@ -118,4 +118,23 @@ struct proc {
   uint runtime;
   uint sched2;
   //#endif
+
+  //#ifdef MLFQ
+  uint inQ;
+  uint level;
+  uint timeinQ;
+  uint qEnter;
+  //uint 
+  //#endif
 };
+
+typedef struct _ProcQueue {
+  int front, rear, currSize;
+  struct proc *list[2*NPROC];
+} ProcQueue;
+ 
+
+void            ageing(void);
+void            ProcQueueRemove(ProcQueue *q, int pid);
+struct proc*    ProcQueueDequeue(ProcQueue *q);
+void            ProcQueueEnqueue(ProcQueue *q, struct proc *p);

@@ -106,7 +106,13 @@ int             either_copyin(void *dst, int user_src, uint64 src, uint64 len);
 void            procdump(void);
 
 void            RunningTime(void);
-void            _setpriority(int pid, int priority);
+int            _setpriority(int pid, int priority);
+
+void            pq_init(void);
+// void            ageing(void);
+// void            ProcQueueRemove(ProcQueue *q, int pid);
+// struct proc*    ProcQueueDequeue(ProcQueue *q);
+// void            ProcQueueEnqueue(ProcQueue *q, struct proc *p);
 
 // swtch.S
 void            swtch(struct context*, struct context*);
