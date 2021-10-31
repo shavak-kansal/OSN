@@ -107,7 +107,7 @@ void            procdump(void);
 
 void            RunningTime(void);
 int            _setpriority(int pid, int priority);
-
+int             waitx(uint64 addr, uint* rtime, uint* wtime);
 void            pq_init(void);
 // void            ageing(void);
 // void            ProcQueueRemove(ProcQueue *q, int pid);

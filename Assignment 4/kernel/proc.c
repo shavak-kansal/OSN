@@ -63,10 +63,10 @@ pq_init(void){
   for(int i=0;i<5;i++){
     mfq[i].front = 0;
     mfq[i].rear = 0;
-  }
-
-  for(int i=0;i<NPROC;i++){
-    mfq->list[i] = 0;
+    
+    for(int j=0;j<2*NPROC;j++){
+      mfq[i].list[j] = 0;
+    }
   }
 }
 
@@ -137,9 +137,18 @@ found:
 
   p->inQ = 0;
   p->qEnter = ticks;
-  // p->level = 0;
-  // p->timeinQ = 1 << p->level;
+  p->level = 0;
+  p->timeinQ = 1 << p->level;
 
+  //printf("allocproc: %d time : %d\n", p->pid, 1 << p->level);
+  p->rtime = 0;
+  p->etime = 0;
+
+  for(int i=0;i<5;i++)
+    p->timeineachq[i] = 0;
+
+  p->nrun = 0;
+  
   //#ifdef PBS
   p->staticPriority = 60;
   p->niceness = 5;
@@ -165,6 +174,8 @@ found:
   memset(&p->context, 0, sizeof(p->context));
   p->context.ra = (uint64)forkret;
   p->context.sp = p->kstack + PGSIZE;
+
+  
 
   return p;
 }
@@ -396,12 +407,12 @@ exit(int status)
 
   p->xstate = status;
   p->state = ZOMBIE;
-
+  p->etime = ticks;
   release(&wait_lock);
 
   // Jump into the scheduler, never to return.
   sched();
-  panic("zombie exit");
+  panic("zombie exit"); 
 }
 
 // Wait for a child process to exit and return its pid.
@@ -466,10 +477,16 @@ void RunningTime(void)
   struct proc *p;
 
   for(p = proc; p < &proc[NPROC]; p++) {
+    
     acquire(&p->lock);
     if(p->state == RUNNING){
-      p->runtime++;    
+      //printf("name , q level , \n");
+      p->runtime++;  
+      p->rtime++;  
+      //printf("Time left 1: %d in running time\n", p->timeinQ);
       p->timeinQ--;
+      //printf("Time left 2: %d", p->timeinQ);
+      p->timeineachq[p->level]++;
     }
     release(&p->lock);
   }
@@ -505,52 +522,6 @@ scheduler(void)
     }
   }
 }
-#elif FCFS1
-
-void scheduler(void){
-  struct proc *p;
-  struct cpu *c = mycpu();
-  struct proc *ref = 0;
-  int min_time = -1;
-  c->proc = 0;
-  
-
-  for(;;){
-    // Avoid deadlock by ensuring that devices can interrupt.
-    intr_on();
-    for(p = proc; p < &proc[NPROC]; p++) {
-      //printf("process time : %d\n name %s", p->birthtime, p->name);
-      acquire(&p->lock);
-
-      if(p->state == RUNNABLE) {
-        
-        if(min_time == -1){
-          min_time = p->birthtime;
-          ref = p;
-        }
-        else if(p->birthtime < min_time){
-          min_time = p->birthtime;
-          release(&ref->lock);
-          ref = p;
-        }
-        else release(&p->lock);
-      }
-      else release(&p->lock);
-    }
-    if(ref != 0){
-      ref->state = RUNNING;
-      c->proc = ref;
-      swtch(&c->context, &ref->context);
-
-      c->proc = 0;
-      min_time = -1;
-      release(&ref->lock);
-      ref = 0;
-    }
-    else 
-      continue;
-  }
-}
 #elif FCFS 
 void
 scheduler(void)
@@ -582,6 +553,7 @@ scheduler(void)
 
     if(low != 0){
       //printf("low process : %d name : %s", low->pid, low->name);
+      low->nrun++;
       low->state = RUNNING;
       c->proc = low;
       swtch(&c->context, &low->context);
@@ -602,11 +574,13 @@ scheduler(void)
   struct proc *p;
   struct cpu *c = mycpu();
   
+  intr_on();
+  
   c->proc = 0;
 
   for(;;){
   
-    intr_on();
+    
     struct proc *low = 0;
     
     for(p = proc; p < &proc[NPROC]; p++) {
@@ -636,6 +610,7 @@ scheduler(void)
 
     if(low != 0){
       //printf("low process : %d name : %s", low->pid, low->name);
+      low->nrun++;
       low->state = RUNNING;
       low->runtime=0;
       low->sched1=ticks;
@@ -666,7 +641,7 @@ scheduler(void)
     intr_on();
     struct proc *low = 0;
 
-    //ageing();
+    ageing();
 
     for(p = proc; p < &proc[NPROC]; p++) {
       acquire(&p->lock);
@@ -676,9 +651,8 @@ scheduler(void)
       }
       release(&p->lock);
     }
-    int done = 0;
 
-    for(int i=0;i<5 && (!done);i++){
+    for(int i=0;i<5;i++){
       struct proc *temp = ProcQueueDequeue(&(mfq[i]));
       
 
@@ -689,7 +663,6 @@ scheduler(void)
         if(temp->state == RUNNABLE){
           temp->qEnter = ticks;
           low = temp;
-          done = 1;
           goto label1;
         }
 
@@ -703,16 +676,19 @@ scheduler(void)
 
     if(low != 0){
       //acquire(&low->lock);
-      //printf("low process : %d name : %s\n", low->pid, low->name);
-      low->timeinQ = 1<<p->level;
+      //printf("low process : %d name : %s total_runtime : %d, pid : %d\n", low->pid, low->name, low->rtime, low->pid);
+      low->nrun++;
+      //low->timeinQ = 1<<p->level;
       low->state = RUNNING;
       low->runtime=0;
       low->sched1=ticks;
       c->proc = low;
+
+      //printf("name : %s, time left in q : %d\n", low->name, low->timeinQ);
       swtch(&c->context, &low->context);
 
       c->proc = 0;
-      low->qEnter = 0;
+      low->qEnter = ticks;
       release(&low->lock);
     }
     else 
@@ -900,6 +876,7 @@ procdump(void)
   struct proc *p;
   char *state;
 
+  #if defined(DEFAULT_SCHEDULER) || defined(FCFS)
   printf("\n");
   for(p = proc; p < &proc[NPROC]; p++){
     if(p->state == UNUSED)
@@ -911,6 +888,35 @@ procdump(void)
     printf("%d %s %s", p->pid, state, p->name);
     printf("\n");
   }
+  #endif
+  #ifdef PBS
+  printf("\n");
+  printf("PID\tPriority\tState\trtime\twtime\tnrun\n");
+  for(p = proc; p < &proc[NPROC]; p++){
+    if(p->state == UNUSED)
+      continue;
+    if(p->state >= 0 && p->state < NELEM(states) && states[p->state])
+      state = states[p->state];
+    else
+      state = "???";
+    printf("%d\t%d\t%s\t%d\t%d\t%d\n", p->pid, p->dynamicPriority, state, p->rtime, ticks - p->birthtime - p->rtime, p->nrun);
+    printf("\n");
+  }
+  #endif
+  #ifdef MLFQ
+  printf("\n");
+  printf("PID\tPriority\tState\trtime\twtime\tnrun\tq0\tq1\tq2\tq3\tq4\n");
+  for(p = proc; p < &proc[NPROC]; p++){
+    if(p->state == UNUSED)
+      continue;
+    if(p->state >= 0 && p->state < NELEM(states) && states[p->state])
+      state = states[p->state];
+    else
+      state = "???";
+    printf("%d\t%d\t\t%s\t%d\t%d\t%d\t%d\t%d\t%d\t%d\t%d\n", p->pid, p->level, state, p->rtime, ticks - p->qEnter, p->nrun, p->timeineachq[0], p->timeineachq[1], p->timeineachq[2], p->timeineachq[3], p->timeineachq[4]);
+    printf("\n");
+  }
+  #endif
 }
 
 int _setpriority(int pid, int priority)
@@ -921,6 +927,7 @@ int _setpriority(int pid, int priority)
     if(p->pid == pid){
       temp = p->staticPriority;
       p->staticPriority = priority;
+      p->niceness = 5;
       break;
     }
   }
@@ -977,6 +984,7 @@ void ageing(void){
       }
       if(p->level > 0){
         p->level--;
+        p->timeinQ = 1 << p->level;
         //ProcQueueEnqueue(&mfq[p->level], p);
         //p->inQ = 1;
       }
@@ -986,3 +994,52 @@ void ageing(void){
   }
 }
 
+
+int
+waitx(uint64 addr, uint* rtime, uint* wtime)
+{
+  struct proc *np;
+  int havekids, pid;
+  struct proc *p = myproc();
+
+  acquire(&wait_lock);
+
+  for(;;){
+    // Scan through table looking for exited children.
+    havekids = 0;
+    for(np = proc; np < &proc[NPROC]; np++){
+      if(np->parent == p){
+        // make sure the child isn't still in exit() or swtch().
+        acquire(&np->lock);
+
+        havekids = 1;
+        if(np->state == ZOMBIE){
+          // Found one.
+          pid = np->pid;
+          *rtime = np->rtime;
+          *wtime = np->etime - np->birthtime - np->rtime;
+          if(addr != 0 && copyout(p->pagetable, addr, (char *)&np->xstate,
+                                  sizeof(np->xstate)) < 0) {
+            release(&np->lock);
+            release(&wait_lock);
+            return -1;
+          }
+          freeproc(np);
+          release(&np->lock);
+          release(&wait_lock);
+          return pid;
+        }
+        release(&np->lock);
+      }
+    }
+
+    // No point waiting if we don't have any children.
+    if(!havekids || p->killed){
+      release(&wait_lock);
+      return -1;
+    }
+
+    // Wait for a child to exit.
+    sleep(p, &wait_lock);  //DOC: wait-sleep
+  }
+}

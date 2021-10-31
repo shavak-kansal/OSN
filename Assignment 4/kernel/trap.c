@@ -80,17 +80,25 @@ usertrap(void)
   #ifdef DEFAULT_SCHEDULER
     if(which_dev == 2)
       yield();
-  #elif MLFQ 
-  if(which_dev == 2 /* && myproc() != 0 && myproc()->state == RUNNING */){
+  #endif
+
+  #ifdef MLFQ 
+  if(which_dev == 2/*  && myproc() != 0 && myproc()->state == RUNNING  */){
     struct proc *p1 = myproc();
     //acquire(&p1->lock);
     if(p1->timeinQ <=0){
-      //printf("doing something ig : user");
+      //printf("p process : %d p : %s total_runtime : %d, pid : %d\n", p1->pid, p1->name, p1->rtime, p1->pid);
+      //printf("doing something : user\n");
       if(p1->level<4){
+        //printf("Promoted ?? \n");
         p1->level++;
-        //release(&p1->lock);
+        p1->timeinQ = 1 << p1->level;  
       }
-      else 
+      else if(p1->level==4){
+        p1->timeinQ = 1 << p1->level;
+      }
+        //p1->timeinQ =(1<<(p1->level));
+        //release(&p1->lock);
         //release(&p1->lock);
       yield();
     }
@@ -169,19 +177,23 @@ kerneltrap()
   #ifdef DEFAULT_SCHEDULER
   if(which_dev == 2 && myproc() != 0 && myproc()->state == RUNNING)
     yield();
-  //#endif
-  #elif MLFQ 
+  #endif
+  
+  #ifdef MLFQ 
   if(which_dev == 2 && myproc() != 0 && myproc()->state == RUNNING){
     struct proc *p = myproc();
-    printf("doing something ig : kernel");
-    //acquire(&p->lock);
+
     if(p->timeinQ <=0){
+      
       if(p->level<4){
+        //printf("p process : %d p : %s total_runtime : %d, pid : %d\n", p->pid, p->name, p->rtime, p->pid);
         p->level++;
-        //release(&p->lock);
+        p->timeinQ =(1<<(p->level));
       }
-      else 
-        //release(&p->lock);
+      else if(p->level==4){
+        p->timeinQ = 1 << p->level;
+      }
+      
       yield();
     }
   }
@@ -203,11 +215,12 @@ clockintr()
   acquire(&tickslock);
   ticks++;
 
-  #ifdef PBS 
-    RunningTime();
-  #elif MLFQ
-    RunningTime();
-  #endif
+  RunningTime();
+  // #ifdef PBS 
+  //   RunningTime();
+  // #elif MLFQ
+  //   RunningTime();
+  // #endif
   
   wakeup(&ticks);
   release(&tickslock);

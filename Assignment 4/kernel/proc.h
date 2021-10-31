@@ -124,6 +124,12 @@ struct proc {
   uint level;
   uint timeinQ;
   uint qEnter;
+  uint timeineachq[5];
+  uint rtime;                   // How long the process ran for
+  uint ctime;                   // When was the process created 
+  uint etime;                   // When did the process exited
+  
+  uint nrun;                    // Number of times the process ran
   //uint 
   //#endif
 };
