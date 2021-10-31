@@ -135,7 +135,7 @@ struct proc {
 };
 
 typedef struct _ProcQueue {
-  int front, rear, currSize;
+  int front, rear;
   struct proc *list[2*NPROC];
 } ProcQueue;
  

@@ -17,8 +17,7 @@ int main() {
           break;
       if (pid == 0) {
           if (n < IO) {
-            sleep(100);
-            //sleep(200); // IO bound processes
+            sleep(200); // IO bound processes
           } else {
             for (int i = 0; i < 1000000000; i++) {}; // CPU bound process
           }
