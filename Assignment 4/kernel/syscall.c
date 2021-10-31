@@ -144,9 +144,14 @@ syscall(void)
   int num;
   struct proc *p = myproc();
 
-  int a;
-  argint(0, &a);
+  
   num = p->trapframe->a7;
+
+  int a;
+  
+  if(syscall_argcnt[num -1 ] > 0)
+    argint(0, &a);
+  
   if(num > 0 && num < NELEM(syscalls) && syscalls[num]) {
     p->trapframe->a0 = syscalls[num]();
 
@@ -155,7 +160,8 @@ syscall(void)
     if((mask ) & (1 << num)){
       printf("syscall %s (", syscall_names[num-1]); 
       
-      printf("%d ", a);
+      if(syscall_argcnt[num -1 ] > 0)
+        printf("%d ", a);
 
       for(int i=1;i<syscall_argcnt[num-1];i++){
         int n;
