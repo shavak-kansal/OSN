@@ -22,6 +22,16 @@ typedef struct course {
 
     int64_t num_labs;
     int64_t *lab_list;
+
+    sem_t tut_slots;
+
+    //pthread_cond_t tut_cond;
+    pthread_mutex_t semaphore_lock;
+
+    pthread_cond_t tut_cond;
+    pthread_mutex_t tut_cond_lock;
+
+    int course_end;
 } course;
 
 typedef struct student {
@@ -30,6 +40,7 @@ typedef struct student {
     int64_t pref2;
     int64_t pref3;
     int64_t calibre;
+    int64_t time;
 } student;
 
 
