@@ -17,21 +17,24 @@ typedef struct lab {
 
 typedef struct course {
     char name[NAME_LENGTH];
-    int64_t interest_quotient;
+    float interest_quotient;
     int64_t max_slots;
 
     int64_t num_labs;
     int64_t *lab_list;
 
     sem_t tut_slots;
-
-    //pthread_cond_t tut_cond;
+    sem_t tut_not_started_binary_semaphore;
     pthread_mutex_t semaphore_lock;
+
+
 
     pthread_cond_t tut_cond;
     pthread_mutex_t tut_cond_lock;
 
-    int course_end;
+    pthread_mutex_t student_counter_lock;
+    int64_t course_end;
+    int64_t students_attending;
 } course;
 
 typedef struct student {
