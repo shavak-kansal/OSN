@@ -5,13 +5,6 @@ course *course_list;
 student *stu_list;
 lab *lab_list;
 
-
-void *lab_thread(void *arg) {
-    lab *l = (lab *) arg;
-
-    
-}
-
 void *course_thread(void* arg){
     course* c = (course*)arg;
 
@@ -47,9 +40,10 @@ void *course_thread(void* arg){
             int64_t random_slots = (rand()%c->max_slots) + 1;
             
             printf("Course %s has been allocated %ld seats\n", c->name ,random_slots);
+            
             /* sem_init(&c->tut_slots,0, random_slots);
             f(random_slots){
-                sem_post(&c->tut_slots);
+                csem_post(&c->tut_slots);
             }
 
             pthread_mutex_lock(&c->semaphore_lock);
@@ -57,7 +51,7 @@ void *course_thread(void* arg){
                 sem_getvalue(&c->tut_slots, &num_students);
 
             pthread_mutex_unlock(&c->semaphore_lock);
- */
+            */
             
             pthread_mutex_lock(&c->tut_cond_lock);
             
@@ -67,76 +61,27 @@ void *course_thread(void* arg){
 
             pthread_mutex_unlock(&c->tut_cond_lock);
 
-            sleep(1);
-
-            sem_wait(&c->tut_not_started_binary_semaphore);
-
-            sleep(2);
+            //sleep(1);
 
             printf("Tutorial has started for Course %s  with %ld seats filled out of %ld\n", c->name, c->students_attending, random_slots);
             
-            sleep(2);
+            sleep(1);
 
             printf("TA %ld from lab %s has completed the tutorial and left the course %s\n", ta_index, lab_list[lab_index].lab_name, c->name);
+
+            c->students_attending = 0;
+            pthread_mutex_unlock(&lab_list[lab_index].ta_list[ta_index].lock);
 
     }
 }
 
-/* void student_thread1(void* arg){
-    student* s = (student*)arg;
-
-    sleep(s->time);
-
-    printf("Student %ld has filled in preferences for course registration", s->student_id);
-
-    pthread_mutex_lock(&course_list[s->pref1].tut_cond_lock);
-    pthread_cond_wait(&course_list[s->pref1].tut_cond, &course_list[s->pref1].tut_cond_lock);
-
-    if(course_list[s->pref1].course_end == 1){
-        pthread_mutex_unlock(&course_list[s->pref1].tut_cond_lock);
-    }
-    else {
-        printf("%s ", s->);
-        pthread_mutex_unlock(&course_list[s->pref1].tut_cond_lock);
-    }
-
-    pthread_mutex_lock(&course_list[s->pref2].tut_cond_lock);
-    pthread_cond_wait(&course_list[s->pref2].tut_cond, &course_list[s->pref2].tut_cond_lock);
-
-    if(course_list[s->pref2].course_end == 1){
-        pthread_mutex_unlock(&course_list[s->pref2].tut_cond_lock);
-    }
-    else {
-        pthread_mutex_unlock(&course_list[s->pref2].tut_cond_lock);
-    }
-
-    pthread_mutex_lock(&course_list[s->pref3].tut_cond_lock);
-    pthread_cond_wait(&course_list[s->pref3].tut_cond, &course_list[s->pref3].tut_cond_lock);
-
-    if(course_list[s->pref3].course_end == 1){
-        pthread_mutex_unlock(&course_list[s->pref3].tut_cond_lock);
-    }
-    else {
-        pthread_mutex_unlock(&course_list[s->pref3].tut_cond_lock);
-    }
-
-} */
 
 void *student_thread(void* arg){
     student* s = (student*)arg;
 
     sleep(s->time);
 
-    printf("Student %ld has filled in preferences for course registration", s->student_id);
-
-    /* pthread_mutex_lock(&course_list[s->pref1].tut_cond_lock);
-    pthread_cond_wait(&course_list[s->pref1].tut_cond, &course_list[s->pref1].tut_cond_lock);
-    pthread_mutex_unlock(&course_list[s->pref1].tut_cond_lock);
-    
-    pthread_mutex_lock(&course_list[s->pref1].student_counter_lock);
-        course_list[s->pref1].students_attending++;
-        printf("Student %ld has been allocated a seat for course %s", s->student_id, course_list[s->pref1].name);
-    pthread_mutex_unlock(&course_list[s->pref1].student_counter_lock); */
+    printf("Student %ld has filled in preferences for course registration\n", s->student_id);
 
     int pref[3];
     pref[0] = s->pref1;
@@ -144,28 +89,31 @@ void *student_thread(void* arg){
     pref[2] = s->pref3;
 
     f(3){
+        if(course_list[pref[i]].course_end == 1){
+            continue;
+        }
         pthread_mutex_lock(&course_list[pref[i]].tut_cond_lock);
         pthread_cond_wait(&course_list[pref[i]].tut_cond, &course_list[pref[i]].tut_cond_lock);
         pthread_mutex_unlock(&course_list[pref[i]].tut_cond_lock);
     
         pthread_mutex_lock(&course_list[pref[i]].student_counter_lock);
             course_list[pref[i]].students_attending++;
-            printf("Student %ld has been allocated a seat for course %s", s->student_id, course_list[pref[i]].name);
+            printf("Student %ld has been allocated a seat for course %s\n", s->student_id, course_list[pref[i]].name);
         pthread_mutex_unlock(&course_list[pref[i]].student_counter_lock);
 
         int prob = course_list[pref[i]].interest_quotient*s->calibre*100;
         int random_num = rand()%100;
 
         if(random_num < prob){
-            printf("Student %ld has selected course %s permanently", s->student_id, course_list[pref[i]].name);
+            printf("Student %ld has selected course %s permanently\n", s->student_id, course_list[pref[i]].name);
             break;
         }
         else {
-            printf("Student %ld has withdrawn from course %s", s->student_id, course_list[pref[i]].name);
+            printf("Student %ld has withdrawn from course %s\n", s->student_id, course_list[pref[i]].name);
         }
     }
 
-    printf("Student %ld couldn’t get any of his preferred courses", s->student_id);
+    printf("Student %ld couldn’t get any of his preferred courses\n", s->student_id);
 }   
 
 int main() {
@@ -212,9 +160,10 @@ int main() {
     }
 
     f(num_stu){
-        int64_t t1,t2,t3,t4,t5;
+        float t1;
+        int64_t t2,t3,t4,t5;
 
-        scanf("%ld %ld %ld %ld %ld",&t1,&t2,&t3,&t4,&t5);
+        scanf("%f %ld %ld %ld %ld",&t1,&t2,&t3,&t4,&t5);
 
         stu_list[i].student_id = i;
         stu_list[i].calibre = t1;
@@ -269,3 +218,44 @@ int main() {
 
     printf("Exiting simulation\n");
 }
+
+
+/* void student_thread1(void* arg){
+    student* s = (student*)arg;
+
+    sleep(s->time);
+
+    printf("Student %ld has filled in preferences for course registration", s->student_id);
+
+    pthread_mutex_lock(&course_list[s->pref1].tut_cond_lock);
+    pthread_cond_wait(&course_list[s->pref1].tut_cond, &course_list[s->pref1].tut_cond_lock);
+
+    if(course_list[s->pref1].course_end == 1){
+        pthread_mutex_unlock(&course_list[s->pref1].tut_cond_lock);
+    }
+    else {
+        printf("%s ", s->);
+        pthread_mutex_unlock(&course_list[s->pref1].tut_cond_lock);
+    }
+
+    pthread_mutex_lock(&course_list[s->pref2].tut_cond_lock);
+    pthread_cond_wait(&course_list[s->pref2].tut_cond, &course_list[s->pref2].tut_cond_lock);
+
+    if(course_list[s->pref2].course_end == 1){
+        pthread_mutex_unlock(&course_list[s->pref2].tut_cond_lock);
+    }
+    else {
+        pthread_mutex_unlock(&course_list[s->pref2].tut_cond_lock);
+    }
+
+    pthread_mutex_lock(&course_list[s->pref3].tut_cond_lock);
+    pthread_cond_wait(&course_list[s->pref3].tut_cond, &course_list[s->pref3].tut_cond_lock);
+
+    if(course_list[s->pref3].course_end == 1){
+        pthread_mutex_unlock(&course_list[s->pref3].tut_cond_lock);
+    }
+    else {
+        pthread_mutex_unlock(&course_list[s->pref3].tut_cond_lock);
+    }
+
+} */

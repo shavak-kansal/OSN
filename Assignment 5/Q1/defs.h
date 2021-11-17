@@ -42,7 +42,7 @@ typedef struct student {
     int64_t pref1;
     int64_t pref2;
     int64_t pref3;
-    int64_t calibre;
+    float calibre;
     int64_t time;
 } student;
 
