@@ -27,11 +27,12 @@ typedef struct course {
     sem_t tut_not_started_binary_semaphore;
     pthread_mutex_t semaphore_lock;
 
-
-
     pthread_cond_t tut_cond;
     pthread_mutex_t tut_cond_lock;
-
+    
+    pthread_cond_t in_tut;
+    pthread_mutex_t in_tut_lock;
+    
     pthread_mutex_t student_counter_lock;
     int64_t course_end;
     int64_t students_attending;

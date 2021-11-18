@@ -33,6 +33,7 @@ void *course_thread(void* arg){
         printf("Course %s doesn’t have any TA’s eligible and is removed from course offerings\n", c->name);
         c->course_end = 1;
         pthread_cond_broadcast(&c->tut_cond);
+
         break;
 
         found:
@@ -61,11 +62,15 @@ void *course_thread(void* arg){
 
             pthread_mutex_unlock(&c->tut_cond_lock);
 
-            //sleep(1);
+            sleep(1);
 
             printf("Tutorial has started for Course %s  with %ld seats filled out of %ld\n", c->name, c->students_attending, random_slots);
             
             sleep(1);
+
+            pthread_mutex_lock(&c->in_tut_lock);
+                pthread_cond_broadcast(&c->in_tut);
+            pthread_mutex_unlock(&c->in_tut_lock);
 
             printf("TA %ld from lab %s has completed the tutorial and left the course %s\n", ta_index, lab_list[lab_index].lab_name, c->name);
 
@@ -95,18 +100,26 @@ void *student_thread(void* arg){
         pthread_mutex_lock(&course_list[pref[i]].tut_cond_lock);
         pthread_cond_wait(&course_list[pref[i]].tut_cond, &course_list[pref[i]].tut_cond_lock);
         pthread_mutex_unlock(&course_list[pref[i]].tut_cond_lock);
+
+        if(course_list[pref[i]].course_end == 1){
+            continue;
+        }
     
         pthread_mutex_lock(&course_list[pref[i]].student_counter_lock);
             course_list[pref[i]].students_attending++;
             printf("Student %ld has been allocated a seat for course %s\n", s->student_id, course_list[pref[i]].name);
         pthread_mutex_unlock(&course_list[pref[i]].student_counter_lock);
 
+        pthread_mutex_lock(&course_list[pref[i]].in_tut_lock);
+            pthread_cond_wait(&course_list[pref[i]].in_tut, &course_list[pref[i]].in_tut_lock);
+        pthread_mutex_unlock(&course_list[pref[i]].in_tut_lock);
+
         int prob = course_list[pref[i]].interest_quotient*s->calibre*100;
         int random_num = rand()%100;
 
         if(random_num < prob){
             printf("Student %ld has selected course %s permanently\n", s->student_id, course_list[pref[i]].name);
-            break;
+            goto finished;
         }
         else {
             printf("Student %ld has withdrawn from course %s\n", s->student_id, course_list[pref[i]].name);
@@ -114,6 +127,8 @@ void *student_thread(void* arg){
     }
 
     printf("Student %ld couldn’t get any of his preferred courses\n", s->student_id);
+
+    finished:
 }   
 
 int main() {
