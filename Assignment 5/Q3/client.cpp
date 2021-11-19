@@ -51,13 +51,16 @@ void *thread_handler(void *arg){
 
     write(socket_fd, s.c_str(), s.length());
 
-    string response;
-    response.resize(128);
+    //string response;
+    //response.resize(128);
+
+    char response[128];
 
     read(socket_fd, &response[0], 127);
 
-    cout << "Response: " << response << endl;
+    //cout << "Response: " << response << endl;
 
+    printf("Response : %s", response);
     return NULL;
 }
 
