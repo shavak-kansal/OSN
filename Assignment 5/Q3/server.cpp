@@ -206,6 +206,7 @@ void *WorkerThread(void *arg) {
             }
             else {
                 std::string ret = dict[key2].GetString();
+                cout<<"Concatenated: "<<ret<<endl;
                 write(req.client_socket_fd, ret.c_str(), ret.length());
             }
         }
