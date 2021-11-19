@@ -4,14 +4,13 @@
 #include <sstream>
 
 class LockedString {
+    public:
+
     std::string str;
     pthread_mutex_t lock = PTHREAD_MUTEX_INITIALIZER;
     bool empty = true;
-    
-
-    public:
-    
     int index;
+
     int UpdateString(std::string new_str) {
         if(empty) 
             return -1;
@@ -39,6 +38,7 @@ class LockedString {
         pthread_mutex_lock(&lock);
         std::string ret = str;
         pthread_mutex_unlock(&lock);
+        std::cout << "GetString: " << ret << std::endl;
         return ret;
     }
 
@@ -55,12 +55,21 @@ class LockedString {
 
         if(index < other.index) {
             pthread_mutex_lock(&lock);
-            str += other.GetString();
+            pthread_mutex_lock(&other.lock);
+            std::string s = this->str;
+            this->str += other.str;
+            other.str += s;
+            pthread_mutex_unlock(&other.lock);
             pthread_mutex_unlock(&lock);
         } 
         else if(other.index < index) {
             pthread_mutex_lock(&other.lock);
-            other.str += GetString();
+            pthread_mutex_lock(&lock);
+            //other.str += GetString();
+            std::string s = this->str;
+            this->str += other.str;
+            other.str += s;
+            pthread_mutex_unlock(&lock);
             pthread_mutex_unlock(&other.lock);
         }
         else if(index == other.index) {
@@ -143,7 +152,7 @@ void *WorkerThread(void *arg) {
 
         std::string value;
 
-        if(type != "delete"){
+        if(type != "delete" && type != "fetch"){
             ss>>word;
             value = word;
         }
@@ -183,6 +192,7 @@ void *WorkerThread(void *arg) {
             }
             else {
                 std::string ret = dict[key].GetString();
+                std::cout<<"Fetched: "<<ret<<std::endl;
                 write(req.client_socket_fd, ret.c_str(), ret.length());
             }
             //std::cout<<"Fetched: "<<ret<<std::endl;
