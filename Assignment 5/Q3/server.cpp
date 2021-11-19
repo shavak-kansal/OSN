@@ -72,6 +72,17 @@ class LockedString {
         return 0;
     }
 
+    int Remove(){
+        if(empty)
+            return -1;
+
+        pthread_mutex_lock(&lock);
+        str = "";
+        empty = true;
+        pthread_mutex_unlock(&lock);
+        return 0;
+    }
+
 };
 
 class ClientRequests {
@@ -115,7 +126,7 @@ void *WorkerThread(void *arg) {
         request.resize(128);
         int n = read(req.client_socket_fd, &request[0], 127);
 
-        std::cout<<"Request: "<<request<<std::endl;
+        //std::cout<<"Request: "<<request<<std::endl;
         std::istringstream ss(request);
 
         std::string word;
@@ -123,36 +134,85 @@ void *WorkerThread(void *arg) {
         ss>>word;
         std::string type = word;
 
-        std::cout<<"type: "<<type<<std::endl;
+        //std::cout<<"type: "<<type<<std::endl;
 
         ss>>word;
         int key = std::stoi(word);
 
-        std::cout<<"key: "<<key<<std::endl;
+        //std::cout<<"key: "<<key<<std::endl;
 
-        ss>>word;
-        std::string value = word;
+        std::string value;
 
-        std::cout<<"value: "<<value<<std::endl;
+        if(type != "delete"){
+            ss>>word;
+            value = word;
+        }
+
+        //std::cout<<"value: "<<value<<std::endl;
 
         if(type == "insert") {
-            dict[key].InsertString(value);
+            int status = dict[key].InsertString(value);
+
+            if(status == -1) {
+                //std::cout<<"Error: Insert failed"<<std::endl;
+                write(req.client_socket_fd ,"Key already exists", 19);
+            }
+            else {
+                //std::cout<<"Inserted: "<<value<<" at index: "<<key<<std::endl;
+                write(req.client_socket_fd ,"Insertion successful", 21);
+            }
         }
         else if(type == "update") {
-            dict[key].UpdateString(value);
+            int status = dict[key].UpdateString(value);
+
+            if(status == -1) {
+                std::cout<<"Error: Update failed"<<std::endl;
+                write(req.client_socket_fd ,"Key does not exist", 19);
+            }
+            else {
+                std::cout<<"Updated: "<<value<<" at index: "<<key<<std::endl;
+                std::string ret = dict[key].GetString();
+                write(req.client_socket_fd, ret.c_str(), ret.length());
+            }
         }
         else if(type == "fetch") {
-            std::string ret = dict[key].GetString();
-            write(req.client_socket_fd, ret.c_str(), ret.length());
+
+            if(dict[key].isEmpty()){
+                //std::cout<<"Key does not exist"<<std::endl;
+                write(req.client_socket_fd ,"Key does not exist", 19);
+            }
+            else {
+                std::string ret = dict[key].GetString();
+                write(req.client_socket_fd, ret.c_str(), ret.length());
+            }
+            //std::cout<<"Fetched: "<<ret<<std::endl;
         }
         else if(type == "concat") {
             int key2 = std::stoi(value);
-            dict[key].concat(dict[key2]);
+            int status = dict[key].concat(dict[key2]);
+
+            if(status == -1) {
+                write(req.client_socket_fd ,"Concat failed as at least one of the keys does not exist", 57);
+            }
+            else {
+                std::string ret = dict[key2].GetString();
+                write(req.client_socket_fd, ret.c_str(), ret.length());
+            }
+        }
+        else if(type == "delete") {
+            if(dict[key].isEmpty()){
+                write(req.client_socket_fd ,"No such key exists", 19);
+            }
+            dict[key].Remove();
         }
         else {
             std::string ret = "Invalid request";
             write(req.client_socket_fd, ret.c_str(), ret.length());
         }
+
+        close(req.client_socket_fd);
+        printf(BRED "Disconnected from client" ANSI_RESET "\n");
+
     }
 
 }
@@ -195,7 +255,7 @@ int main(int argc, char *argv[]) {
         exit(-1);
     }
 
-    listen(wel_socket_fd, 11);
+    listen(wel_socket_fd, 20);
     std::cout << "Server has started listening on the LISTEN PORT" << std::endl;
 
     while (1)

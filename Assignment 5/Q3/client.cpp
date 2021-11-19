@@ -40,15 +40,25 @@ void *thread_handler(void *arg){
     int delay = p->second;
     string s = p->first;
 
+    s.erase(0,1);
+
     sleep(delay);
     
     cout << "Sending " << s << endl;
-    
+
     struct sockaddr_in server_obj;
     int socket_fd = get_socket_fd(&server_obj);
 
     write(socket_fd, s.c_str(), s.length());
 
+    string response;
+    response.resize(128);
+
+    read(socket_fd, &response[0], 127);
+
+    cout << "Response: " << response << endl;
+
+    return NULL;
 }
 
 int main(){
@@ -63,10 +73,16 @@ int main(){
         cin>>time;
 
         string s;
-        cin>>s;
+        //cin>>s;
+
+        getline(cin, s);
 
         pair<string, int> p(s, time);
 
         pthread_create(&threads[i], NULL, thread_handler, (void *)&p);
+    }
+
+    f(n){
+        pthread_join(threads[i], NULL);
     }
 }   
