@@ -115,6 +115,7 @@ void *WorkerThread(void *arg) {
         request.resize(128);
         int n = read(req.client_socket_fd, &request[0], 127);
 
+        std::cout<<"Request: "<<request<<std::endl;
         std::istringstream ss(request);
 
         std::string word;
@@ -122,11 +123,17 @@ void *WorkerThread(void *arg) {
         ss>>word;
         std::string type = word;
 
+        std::cout<<"type: "<<type<<std::endl;
+
         ss>>word;
-        int key = stoi(word);
+        int key = std::stoi(word);
+
+        std::cout<<"key: "<<key<<std::endl;
 
         ss>>word;
         std::string value = word;
+
+        std::cout<<"value: "<<value<<std::endl;
 
         if(type == "insert") {
             dict[key].InsertString(value);
@@ -139,7 +146,7 @@ void *WorkerThread(void *arg) {
             write(req.client_socket_fd, ret.c_str(), ret.length());
         }
         else if(type == "concat") {
-            int key2 = stoi(value);
+            int key2 = std::stoi(value);
             dict[key].concat(dict[key2]);
         }
         else {
@@ -155,7 +162,7 @@ int main(int argc, char *argv[]) {
     f(100)
         dict[i].index = i;
 
-    int num_workers = std::stoi(argv[1]);
+    int num_workers = atoi(argv[1]);
 
     std::vector<pthread_t> threads(num_workers);
 
