@@ -38,7 +38,6 @@ class LockedString {
         pthread_mutex_lock(&lock);
         std::string ret = str;
         pthread_mutex_unlock(&lock);
-        std::cout << "GetString: " << ret << std::endl;
         return ret;
     }
 
@@ -206,7 +205,7 @@ void *WorkerThread(void *arg) {
             }
             else {
                 std::string ret = dict[key2].GetString();
-                cout<<"Concatenated: "<<ret<<endl;
+                std::cout<<"Concatenated str1: "<<dict[key].GetString()<<" and str2: "<<dict[key2].GetString()<<std::endl;
                 write(req.client_socket_fd, ret.c_str(), ret.size());
             }
         }
