@@ -80,7 +80,7 @@ void *thread_handler(void *arg){
 
     sleep(delay);
     
-    cout <<"Sending:"<<s<< endl;
+    //cout <<"Sending:"<<s<< endl;
 
     struct sockaddr_in server_obj;
     int socket_fd = get_socket_fd(&server_obj);
@@ -91,13 +91,8 @@ void *thread_handler(void *arg){
     string output_msg;
     tie(output_msg, num_bytes_read) = read_string_from_socket(socket_fd, buff_sz);
 
-    int num_bytes_read1;
-    string thread_id;
-    
-    tie(thread_id, num_bytes_read1) = read_string_from_socket(socket_fd, buff_sz);
 
-    
-    printf("%d : %s : %s\n",full->first, thread_id.c_str() ,output_msg.c_str());
+    printf("%d : %s\n",full->first, output_msg.c_str());
     return NULL;
 }
 

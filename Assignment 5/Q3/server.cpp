@@ -3,15 +3,48 @@
 #include "useless.h"
 #include <sstream>
 
+using namespace std;
+
+pair<string, int> read_string_from_socket(const int &fd, int bytes)
+{
+    string output;
+    output.resize(bytes);
+
+    int bytes_received = read(fd, &output[0], bytes - 1);
+    debug(bytes_received);
+    if (bytes_received <= 0)
+    {
+        cerr << "Failed to read data from socket. \n";
+    }
+
+    output[bytes_received] = 0;
+    output.resize(bytes_received);
+    // debug(output);
+    return {output, bytes_received};
+}
+
+int send_string_on_socket(int fd, const string &s)
+{
+    // debug(s.length());
+    int bytes_sent = write(fd, s.c_str(), s.length());
+    if (bytes_sent < 0)
+    {
+        cerr << "Failed to SEND DATA via socket.\n";
+    }
+
+    return bytes_sent;
+}
+
+
 class LockedString {
     public:
 
-    std::string str;
+    string str;
     pthread_mutex_t lock = PTHREAD_MUTEX_INITIALIZER;
     bool empty = true;
     int index;
 
-    int UpdateString(std::string new_str) {
+    int UpdateString(string new_str) {
         if(empty) 
             return -1;
 
@@ -22,7 +55,7 @@ class LockedString {
         return 0;
     }
 
-    int InsertString(std::string new_str) {
+    int InsertString(string new_str) {
         if(!empty) 
             return -1;
 
@@ -34,9 +67,9 @@ class LockedString {
         return 0;
     }
 
-    std::string GetString() {
+    string GetString() {
         pthread_mutex_lock(&lock);
-        std::string ret = str;
+        string ret = str;
         pthread_mutex_unlock(&lock);
         return ret;
     }
@@ -55,7 +88,7 @@ class LockedString {
         if(index < other.index) {
             pthread_mutex_lock(&lock);
             pthread_mutex_lock(&other.lock);
-            std::string s = this->str;
+            string s = this->str;
             this->str += other.str;
             other.str += s;
             pthread_mutex_unlock(&other.lock);
@@ -65,7 +98,7 @@ class LockedString {
             pthread_mutex_lock(&other.lock);
             pthread_mutex_lock(&lock);
             //other.str += GetString();
-            std::string s = this->str;
+            string s = this->str;
             this->str += other.str;
             other.str += s;
             pthread_mutex_unlock(&lock);
@@ -103,7 +136,7 @@ class ClientRequests {
 class LockedQueue {
     public:
 
-    std::queue<ClientRequests> queue;
+    queue<ClientRequests> queueInternal;
     pthread_mutex_t queue_lock = PTHREAD_MUTEX_INITIALIZER;
     
     pthread_cond_t cond = PTHREAD_COND_INITIALIZER;
@@ -111,12 +144,27 @@ class LockedQueue {
 };
 
 
-std::vector<LockedString> dict(100);
+vector<LockedString> dict(100);
 LockedQueue requestsList;
 
+int SenderWrapper(int fd, string s1, string s2) {
+    
+    string msg_to_send_back = s1 + " : " + s2;
+    int sent_to_client = send_string_on_socket(fd, msg_to_send_back);
+    
+    if(sent_to_client < 0) {
+        cerr << "Failed to send data to client.\n";
+    }
+
+    return 0;
+}
 void *WorkerThread(void *arg) {
     
     while(1){
+
+        pid_t x = syscall(__NR_gettid);
+
+        string thread_id = to_string(x);
 
         pthread_mutex_lock(&requestsList.cond_lock);
         pthread_cond_wait(&requestsList.cond, &requestsList.cond_lock);
@@ -124,20 +172,23 @@ void *WorkerThread(void *arg) {
 
         pthread_mutex_lock(&requestsList.queue_lock);
 
-        ClientRequests req = requestsList.queue.front();
-        requestsList.queue.pop();
+        ClientRequests req = requestsList.queueInternal.front();
+        requestsList.queueInternal.pop();
 
         pthread_mutex_unlock(&requestsList.queue_lock);
 
 
-        std::string request;
-        request.resize(128);
-        int n = read(req.client_socket_fd, &request[0], 127);
+        string request;
+        int received_num;
+        //request.resize(128);
+        //int n = read(req.client_socket_fd, &request[0], 127);
         
-        std::cout<<"Request:"<<request<<std::endl;
+        tie(request, received_num) = read_string_from_socket(req.client_socket_fd, buff_sz);
+
+        cout<<"Request:"<<request<<endl;
         
         if(!strcmp(request.c_str(), "clear")) {
-            std::cout << "clearing" << std::endl;
+            cout << "clearing" << endl;
             f(100)
                 dict[i].Remove();
             
@@ -146,19 +197,19 @@ void *WorkerThread(void *arg) {
         }
         else 
         {
-        std::istringstream ss(request);
+        istringstream ss(request);
 
-        std::string word;
+        string word;
         
         ss>>word;
-        std::string type = word;
+        string type = word;
 
         
         ss>>word;
-        int key = std::stoi(word);
+        int key = stoi(word);
 
         
-        std::string value;
+        string value;
 
         if(type != "delete" && type != "fetch"){
             ss>>word;
@@ -169,78 +220,146 @@ void *WorkerThread(void *arg) {
             int status = dict[key].InsertString(value);
 
             if(status == -1) {
-                //std::cout<<"Error: Insert failed"<<std::endl;
-                write(req.client_socket_fd ,"Key already exists", 19);
+                //cout<<"Error: Insert failed"<<endl;
+                //write(req.client_socket_fd ,"Key already exists", 19);
+                
+                SenderWrapper(req.client_socket_fd, thread_id, "Key already exists");
             }
             else {
-                //std::cout<<"Inserted: "<<value<<" at index: "<<key<<std::endl;
-                write(req.client_socket_fd ,"Insertion successful", 21);
+                //cout<<"Inserted: "<<value<<" at index: "<<key<<endl;
+                //write(req.client_socket_fd ,"Insertion successful", 21);
+
+                // string msg_to_send_back = "Insertion successful";
+                // int sent_to_client = send_string_on_socket(req.client_socket_fd, msg_to_send_back);
+                // if(sent_to_client < 0) {
+                //     cerr << "Failed to send data to client.\n";
+                // }
+
+                SenderWrapper(req.client_socket_fd, thread_id, "Insertion successful");
             }
         }
         else if(type == "update") {
             int status = dict[key].UpdateString(value);
 
             if(status == -1) {
-                std::cout<<"Error: Update failed"<<std::endl;
-                write(req.client_socket_fd ,"Key does not exist", 19);
+                cout<<"Error: Update failed"<<endl;
+                //write(req.client_socket_fd ,"Key does not exist", 19);
+
+                // string msg_to_send_back = "Key does not exist";
+                // int sent_to_client = send_string_on_socket(req.client_socket_fd, msg_to_send_back);
+                // if(sent_to_client < 0) {
+                //     cerr << "Failed to send data to client.\n";
+                // }
+
+                SenderWrapper(req.client_socket_fd, thread_id, "Key does not exist");
             }
             else {
-                std::cout<<"Updated: "<<value<<" at index: "<<key<<std::endl;
-                std::string ret = dict[key].GetString();
-                write(req.client_socket_fd, ret.c_str(), ret.length());
+                cout<<"Updated: "<<value<<" at index: "<<key<<endl;
+                string ret = dict[key].GetString();
+                //write(req.client_socket_fd, ret.c_str(), ret.length());
+
+                // string msg_to_send_back = ret;
+                // int sent_to_client = send_string_on_socket(req.client_socket_fd, msg_to_send_back);
+                // if(sent_to_client < 0) {
+                //     cerr << "Failed to send data to client.\n";
+                // }
+
+                SenderWrapper(req.client_socket_fd, thread_id, ret);
+                
             }
         }
         else if(type == "fetch") {
 
             if(dict[key].isEmpty()){
-                //std::cout<<"Key does not exist"<<std::endl;
-                write(req.client_socket_fd ,"Key does not exist", 19);
+                //cout<<"Key does not exist"<<endl;
+                //write(req.client_socket_fd ,"Key does not exist", 19);
+
+                // string msg_to_send_back = "Key does not exist";
+                // int sent_to_client = send_string_on_socket(req.client_socket_fd, msg_to_send_back);
+                // if(sent_to_client < 0) {
+                //     cerr << "Failed to send data to client.\n";
+                // }
+
+                SenderWrapper(req.client_socket_fd, thread_id, "Key does not exist");
             }
             else {
-                std::string ret = dict[key].GetString();
-                std::cout<<"Fetched: "<<ret<<std::endl;
-                write(req.client_socket_fd, ret.c_str(), ret.length());
+                string ret = dict[key].GetString();
+                cout<<"Fetched: "<<ret<<endl;
+                //write(req.client_socket_fd, ret.c_str(), ret.length());
+
+                // string msg_to_send_back = ret;
+                // int sent_to_client = send_string_on_socket(req.client_socket_fd, msg_to_send_back);
+                // if(sent_to_client < 0) {
+                //     cerr << "Failed to send data to client.\n";
+                // }
+
+                SenderWrapper(req.client_socket_fd, thread_id, ret);
             }
-            //std::cout<<"Fetched: "<<ret<<std::endl;
+            //cout<<"Fetched: "<<ret<<endl;
         }
         else if(type == "concat") {
-            int key2 = std::stoi(value);
+            int key2 = stoi(value);
             int status = dict[key].concat(dict[key2]);
 
             if(status == -1) {
-                write(req.client_socket_fd ,"Concat failed as at least one of the keys does not exist", 57);
+                //write(req.client_socket_fd ,"Concat failed as at least one of the keys does not exist", 57);
+
+                // string msg_to_send_back = "Concat failed as at least one of the keys does not exist";
+                // int sent_to_client = send_string_on_socket(req.client_socket_fd, msg_to_send_back);
+                // if(sent_to_client < 0) {
+                //     cerr << "Failed to send data to client.\n";
+                // }
+
+                SenderWrapper(req.client_socket_fd, thread_id, "Concat failed as at least one of the keys does not exist");
             }
             else {
-                std::string ret = dict[key2].GetString();
-                std::cout<<"Concatenated str1: "<<dict[key].GetString()<<" and str2: "<<dict[key2].GetString()<<std::endl;
-                write(req.client_socket_fd, ret.c_str(), ret.size());
+                string ret = dict[key2].GetString();
+                cout<<"Concatenated str1: "<<dict[key].GetString()<<" and str2: "<<dict[key2].GetString()<<endl;
+                //write(req.client_socket_fd, ret.c_str(), ret.size());
+
+                // string msg_to_send_back = ret;
+                // int sent_to_client = send_string_on_socket(req.client_socket_fd, msg_to_send_back);
+                // if(sent_to_client < 0) {
+                //     cerr << "Failed to send data to client.\n";
+                // }
+
+                SenderWrapper(req.client_socket_fd, thread_id, ret);
             }
         }
         else if(type == "delete") {
             if(dict[key].isEmpty()){
-                write(req.client_socket_fd ,"No such key exists", 19);
+                //write(req.client_socket_fd ,"No such key exists", 19);
+
+                // string msg_to_send_back = "No such key exists";
+                // int sent_to_client = send_string_on_socket(req.client_socket_fd, msg_to_send_back);
+                // if(sent_to_client < 0) {
+                //     cerr << "Failed to send data to client.\n";
+                // }
+
+                SenderWrapper(req.client_socket_fd, thread_id, "No such key exists");
             }
             dict[key].Remove();
         }
         else {
-            std::string ret = "Invalid request";
-            write(req.client_socket_fd, ret.c_str(), ret.size());
+            string ret = "Invalid request";
+            //write(req.client_socket_fd, ret.c_str(), ret.size());
+
+            // string msg_to_send_back = "Invalid request";
+            // int sent_to_client = send_string_on_socket(req.client_socket_fd, msg_to_send_back);
+            // if(sent_to_client < 0) {
+            //     cerr << "Failed to send data to client.\n";
+            // }
+
+            SenderWrapper(req.client_socket_fd, thread_id, "Invalid request");
+
         }
     }
-        pid_t x = syscall(__NR_gettid);
-
-        std::string thread_id = std::to_string(x);
-
-        write(req.client_socket_fd, thread_id.c_str(), thread_id.length());
+        
         close(req.client_socket_fd);
         printf(BRED "Disconnected from client" ANSI_RESET "\n");
 
     }
 
-}
-
-void intHandler(int dummy) {
-    
 }
 
 int main(int argc, char *argv[]) {
@@ -250,7 +369,7 @@ int main(int argc, char *argv[]) {
 
     int num_workers = atoi(argv[1]);
 
-    std::vector<pthread_t> threads(num_workers);
+    vector<pthread_t> threads(num_workers);
 
     f(num_workers)
         pthread_create(&threads[i], NULL, WorkerThread, NULL);
@@ -282,7 +401,7 @@ int main(int argc, char *argv[]) {
     }
 
     listen(wel_socket_fd, 20);
-    std::cout << "Server has started listening on the LISTEN PORT" << std::endl;
+    cout << "Server has started listening on the LISTEN PORT" << endl;
 
     while (1)
     {
@@ -301,7 +420,7 @@ int main(int argc, char *argv[]) {
         req.clilen = sizeof(client_addr_obj);
 
         pthread_mutex_lock(&requestsList.queue_lock);
-        requestsList.queue.push(req);
+        requestsList.queueInternal.push(req);
         pthread_mutex_unlock(&requestsList.queue_lock);
 
         //sth uncertain here
