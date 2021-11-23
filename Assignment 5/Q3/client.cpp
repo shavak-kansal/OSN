@@ -4,6 +4,43 @@
 
 using namespace std;
 
+pair<string, int> read_string_from_socket(int fd, int bytes)
+{
+    std::string output;
+    output.resize(bytes);
+
+    int bytes_received = read(fd, &output[0], bytes - 1);
+    // debug(bytes_received);
+    if (bytes_received <= 0)
+    {
+        cerr << "Failed to read data from socket. Seems server has closed socket\n";
+        // return "
+        exit(-1);
+    }
+
+    // debug(output);
+    output[bytes_received] = 0;
+    output.resize(bytes_received);
+
+    return {output, bytes_received};
+}
+
+int send_string_on_socket(int fd, const string &s)
+{
+    // cout << "We are sending " << s << endl;
+    int bytes_sent = write(fd, s.c_str(), s.length());
+    // debug(bytes_sent);
+    // debug(s);
+    if (bytes_sent < 0)
+    {
+        cerr << "Failed to SEND DATA on socket.\n";
+        // return "
+        exit(-1);
+    }
+
+    return bytes_sent;
+}
+
 int get_socket_fd(struct sockaddr_in *ptr)
 {
     struct sockaddr_in server_obj = *ptr;
@@ -35,30 +72,32 @@ int get_socket_fd(struct sockaddr_in *ptr)
 
 void *thread_handler(void *arg){
 
-    auto p = (pair<string, int> *)arg;
+    auto full = (pair<int, pair<string, int>> *) arg;
+    auto p = (pair<string, int>*)(&full->second);
 
     int delay = p->second;
     string s = p->first;
 
     sleep(delay);
     
-    cout <<"Sending " << s << endl;
+    cout <<"Sending:"<<s<< endl;
 
     struct sockaddr_in server_obj;
     int socket_fd = get_socket_fd(&server_obj);
 
-    write(socket_fd, s.c_str(), s.length());
+    send_string_on_socket(socket_fd, s);
 
-    //string response;
-    //response.resize(128);
+    int num_bytes_read;
+    string output_msg;
+    tie(output_msg, num_bytes_read) = read_string_from_socket(socket_fd, buff_sz);
 
-    char response[128];
+    int num_bytes_read1;
+    string thread_id;
+    
+    tie(thread_id, num_bytes_read1) = read_string_from_socket(socket_fd, buff_sz);
 
-    read(socket_fd, response, 127);
-
-    //cout << "Response: " << response << endl;
-
-    printf("Response : %s\n", response);
+    
+    printf("%d : %s : %s\n",full->first, thread_id.c_str() ,output_msg.c_str());
     return NULL;
 }
 
@@ -84,24 +123,18 @@ int main(){
 
     pthread_t threads[n];
 
+    pair<int,pair<string, int>> args[n];
+
     f(n){
-        //int time;
-        //cin>>time;
-
-        //string s;
-        //cin>>s;
-
-        char s[100];
-
-        //getline(cin, s);
+        char s[128];
 
         scanf(" %[^\n]", s);
-        //cout<<s<<endl;
 
-        //fgets(s, 100, stdin);
-        pair<string, int> p = get_pair(s);
+        pair<int,pair<string, int>> p;
+        args[i].first = i;
+        args[i].second = get_pair(s);
 
-        pthread_create(&threads[i], NULL, thread_handler, (void *)&p);
+        pthread_create(&threads[i], NULL, thread_handler, (void *)&(args[i]));
     }
 
     f(n){

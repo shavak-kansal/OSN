@@ -133,8 +133,19 @@ void *WorkerThread(void *arg) {
         std::string request;
         request.resize(128);
         int n = read(req.client_socket_fd, &request[0], 127);
+        
+        std::cout<<"Request:"<<request<<std::endl;
+        
+        if(!strcmp(request.c_str(), "clear")) {
+            std::cout << "clearing" << std::endl;
+            f(100)
+                dict[i].Remove();
+            
+            write(req.client_socket_fd, "cleared", 7);
 
-        //std::cout<<"Request: "<<request<<std::endl;
+        }
+        else 
+        {
         std::istringstream ss(request);
 
         std::string word;
@@ -142,21 +153,17 @@ void *WorkerThread(void *arg) {
         ss>>word;
         std::string type = word;
 
-        //std::cout<<"type: "<<type<<std::endl;
-
+        
         ss>>word;
         int key = std::stoi(word);
 
-        //std::cout<<"key: "<<key<<std::endl;
-
+        
         std::string value;
 
         if(type != "delete" && type != "fetch"){
             ss>>word;
             value = word;
         }
-
-        //std::cout<<"value: "<<value<<std::endl;
 
         if(type == "insert") {
             int status = dict[key].InsertString(value);
@@ -219,12 +226,21 @@ void *WorkerThread(void *arg) {
             std::string ret = "Invalid request";
             write(req.client_socket_fd, ret.c_str(), ret.size());
         }
+    }
+        pid_t x = syscall(__NR_gettid);
 
+        std::string thread_id = std::to_string(x);
+
+        write(req.client_socket_fd, thread_id.c_str(), thread_id.length());
         close(req.client_socket_fd);
         printf(BRED "Disconnected from client" ANSI_RESET "\n");
 
     }
 
+}
+
+void intHandler(int dummy) {
+    
 }
 
 int main(int argc, char *argv[]) {
