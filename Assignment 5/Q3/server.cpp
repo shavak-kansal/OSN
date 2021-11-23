@@ -220,21 +220,9 @@ void *WorkerThread(void *arg) {
             int status = dict[key].InsertString(value);
 
             if(status == -1) {
-                //cout<<"Error: Insert failed"<<endl;
-                //write(req.client_socket_fd ,"Key already exists", 19);
-                
                 SenderWrapper(req.client_socket_fd, thread_id, "Key already exists");
             }
             else {
-                //cout<<"Inserted: "<<value<<" at index: "<<key<<endl;
-                //write(req.client_socket_fd ,"Insertion successful", 21);
-
-                // string msg_to_send_back = "Insertion successful";
-                // int sent_to_client = send_string_on_socket(req.client_socket_fd, msg_to_send_back);
-                // if(sent_to_client < 0) {
-                //     cerr << "Failed to send data to client.\n";
-                // }
-
                 SenderWrapper(req.client_socket_fd, thread_id, "Insertion successful");
             }
         }
@@ -243,26 +231,11 @@ void *WorkerThread(void *arg) {
 
             if(status == -1) {
                 cout<<"Error: Update failed"<<endl;
-                //write(req.client_socket_fd ,"Key does not exist", 19);
-
-                // string msg_to_send_back = "Key does not exist";
-                // int sent_to_client = send_string_on_socket(req.client_socket_fd, msg_to_send_back);
-                // if(sent_to_client < 0) {
-                //     cerr << "Failed to send data to client.\n";
-                // }
-
                 SenderWrapper(req.client_socket_fd, thread_id, "Key does not exist");
             }
             else {
                 cout<<"Updated: "<<value<<" at index: "<<key<<endl;
                 string ret = dict[key].GetString();
-                //write(req.client_socket_fd, ret.c_str(), ret.length());
-
-                // string msg_to_send_back = ret;
-                // int sent_to_client = send_string_on_socket(req.client_socket_fd, msg_to_send_back);
-                // if(sent_to_client < 0) {
-                //     cerr << "Failed to send data to client.\n";
-                // }
 
                 SenderWrapper(req.client_socket_fd, thread_id, ret);
                 
@@ -271,27 +244,12 @@ void *WorkerThread(void *arg) {
         else if(type == "fetch") {
 
             if(dict[key].isEmpty()){
-                //cout<<"Key does not exist"<<endl;
-                //write(req.client_socket_fd ,"Key does not exist", 19);
-
-                // string msg_to_send_back = "Key does not exist";
-                // int sent_to_client = send_string_on_socket(req.client_socket_fd, msg_to_send_back);
-                // if(sent_to_client < 0) {
-                //     cerr << "Failed to send data to client.\n";
-                // }
 
                 SenderWrapper(req.client_socket_fd, thread_id, "Key does not exist");
             }
             else {
                 string ret = dict[key].GetString();
                 cout<<"Fetched: "<<ret<<endl;
-                //write(req.client_socket_fd, ret.c_str(), ret.length());
-
-                // string msg_to_send_back = ret;
-                // int sent_to_client = send_string_on_socket(req.client_socket_fd, msg_to_send_back);
-                // if(sent_to_client < 0) {
-                //     cerr << "Failed to send data to client.\n";
-                // }
 
                 SenderWrapper(req.client_socket_fd, thread_id, ret);
             }
@@ -302,53 +260,24 @@ void *WorkerThread(void *arg) {
             int status = dict[key].concat(dict[key2]);
 
             if(status == -1) {
-                //write(req.client_socket_fd ,"Concat failed as at least one of the keys does not exist", 57);
-
-                // string msg_to_send_back = "Concat failed as at least one of the keys does not exist";
-                // int sent_to_client = send_string_on_socket(req.client_socket_fd, msg_to_send_back);
-                // if(sent_to_client < 0) {
-                //     cerr << "Failed to send data to client.\n";
-                // }
 
                 SenderWrapper(req.client_socket_fd, thread_id, "Concat failed as at least one of the keys does not exist");
             }
             else {
                 string ret = dict[key2].GetString();
                 cout<<"Concatenated str1: "<<dict[key].GetString()<<" and str2: "<<dict[key2].GetString()<<endl;
-                //write(req.client_socket_fd, ret.c_str(), ret.size());
-
-                // string msg_to_send_back = ret;
-                // int sent_to_client = send_string_on_socket(req.client_socket_fd, msg_to_send_back);
-                // if(sent_to_client < 0) {
-                //     cerr << "Failed to send data to client.\n";
-                // }
 
                 SenderWrapper(req.client_socket_fd, thread_id, ret);
             }
         }
         else if(type == "delete") {
             if(dict[key].isEmpty()){
-                //write(req.client_socket_fd ,"No such key exists", 19);
-
-                // string msg_to_send_back = "No such key exists";
-                // int sent_to_client = send_string_on_socket(req.client_socket_fd, msg_to_send_back);
-                // if(sent_to_client < 0) {
-                //     cerr << "Failed to send data to client.\n";
-                // }
-
                 SenderWrapper(req.client_socket_fd, thread_id, "No such key exists");
             }
             dict[key].Remove();
         }
         else {
             string ret = "Invalid request";
-            //write(req.client_socket_fd, ret.c_str(), ret.size());
-
-            // string msg_to_send_back = "Invalid request";
-            // int sent_to_client = send_string_on_socket(req.client_socket_fd, msg_to_send_back);
-            // if(sent_to_client < 0) {
-            //     cerr << "Failed to send data to client.\n";
-            // }
 
             SenderWrapper(req.client_socket_fd, thread_id, "Invalid request");
 
