@@ -180,8 +180,6 @@ void *WorkerThread(void *arg) {
 
         string request;
         int received_num;
-        //request.resize(128);
-        //int n = read(req.client_socket_fd, &request[0], 127);
         
         tie(request, received_num) = read_string_from_socket(req.client_socket_fd, buff_sz);
 

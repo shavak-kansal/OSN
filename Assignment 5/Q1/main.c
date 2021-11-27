@@ -1,5 +1,6 @@
 //#include "utils.h"
 #include "defs.h"
+#include "useless.h"
 
 course *course_list;
 student *stu_list;
@@ -8,6 +9,7 @@ lab *lab_list;
 void *course_thread(void* arg){
     course* c = (course*)arg;
 
+    //printf("Course %s started\n", c->name);
     while(1){
 
         int lab_index;
@@ -15,8 +17,9 @@ void *course_thread(void* arg){
 
         f(c->num_labs){
             f1(lab_list[i].ta_num){
-                pthread_mutex_lock(&lab_list[i].ta_list[i1].lock);
-                
+                if(pthread_mutex_trylock(&lab_list[i].ta_list[i1].lock)!=0)
+                    continue;
+
                 if(lab_list[i].ta_list[i1].turns_left > 0){
                     lab_list[i].ta_list[i1].turns_left--;
                     //pthread_mutex_unlock(&lab_list[i].ta_list[i1].lock);
@@ -40,6 +43,7 @@ void *course_thread(void* arg){
             ;
             int64_t random_slots = (rand()%c->max_slots) + 1;
             
+            printf("TA %d from lab %d has been allocated to course %s for %ldth TA ship\n", ta_index, lab_index, c->name, (lab_list[lab_index].max_turns - lab_list[lab_index].ta_list[ta_index].turns_left));
             printf("Course %s has been allocated %ld seats\n", c->name ,random_slots);
             
             /* sem_init(&c->tut_slots,0, random_slots);
@@ -60,19 +64,22 @@ void *course_thread(void* arg){
                 pthread_cond_signal(&c->tut_cond);
             }
 
+            // while(c->students_attending == 0)
+            //     pthread_cond_signal(&c->tut_cond);
+
             pthread_mutex_unlock(&c->tut_cond_lock);
 
             sleep(1);
 
             printf("Tutorial has started for Course %s  with %ld seats filled out of %ld\n", c->name, c->students_attending, random_slots);
             
-            sleep(1);
+            sleep(6);
 
             pthread_mutex_lock(&c->in_tut_lock);
                 pthread_cond_broadcast(&c->in_tut);
             pthread_mutex_unlock(&c->in_tut_lock);
 
-            printf("TA %ld from lab %s has completed the tutorial and left the course %s\n", ta_index, lab_list[lab_index].lab_name, c->name);
+            printf("TA %d from lab %s has completed the tutorial and left the course %s\n", ta_index, lab_list[lab_index].lab_name, c->name);
 
             c->students_attending = 0;
             pthread_mutex_unlock(&lab_list[lab_index].ta_list[ta_index].lock);
@@ -94,6 +101,10 @@ void *student_thread(void* arg){
     pref[2] = s->pref3;
 
     f(3){
+
+        if(i!=0){
+            printf("Student %ld has changed current preference from %s (priority %d) to %s (priority %d)\n", s->student_id, course_list[pref[i-1]].name, i-1, course_list[pref[i]].name, i);
+        }
         if(course_list[pref[i]].course_end == 1){
             continue;
         }
@@ -122,13 +133,14 @@ void *student_thread(void* arg){
             goto finished;
         }
         else {
-            printf("Student %ld has withdrawn from course %s\n", s->student_id, course_list[pref[i]].name);
+            if(!course_list[pref[i]].course_end)
+                printf("Student %ld has withdrawn from course %s\n", s->student_id, course_list[pref[i]].name);
         }
     }
 
     printf("Student %ld couldn’t get any of his preferred courses\n", s->student_id);
 
-    finished:
+    finished:;
 }   
 
 int main() {
@@ -223,13 +235,15 @@ int main() {
         pthread_create(&student_threads[i], NULL, student_thread, &stu_list[i]);
     }
 
+    
+    f(num_stu){
+        pthread_join(student_threads[i], NULL);
+    }
+
     f(num_courses){
         pthread_join(course_threads[i], NULL);
     }
 
-    f(num_stu){
-        pthread_join(student_threads[i], NULL);
-    }
 
     printf("Exiting simulation\n");
 }

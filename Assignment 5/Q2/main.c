@@ -1,5 +1,6 @@
 #include "utils.h"
 #include "defs.h"
+#include "useless.h"
 
 locks_stuff sync_stuff;
 group *groups;
@@ -27,14 +28,14 @@ void *spectator_thread(void *arg) {
 
     sleep(p->time_reached);
 
-    printf("Person %s has reached the stadium\n", p->name);
+    printf(BBLU "Person %s has reached the stadium\n", p->name);
     int type_id;
     char* person_id;
 
     person_id = p->name;
 
     type_id = team_char_to_int(p->type);
-
+    
     //printf("type of fan %d should be %c\n", type_id, p->type);
 
     int zone_id; // for holding which zone was allocated 0 - home, 1 - away, 2 - neutral
@@ -57,7 +58,7 @@ void *spectator_thread(void *arg) {
         pthread_mutex_unlock(&sync_stuff.fans_type_mutex[i]);
 
         if(rt == ETIMEDOUT){
-            printf("Person %s couldn't get a seat\n", person_id);
+            printf(BCYN "Person %s couldn't get a seat\n", person_id);
             return NULL;
         }
 
@@ -65,13 +66,13 @@ void *spectator_thread(void *arg) {
             if(!sem_trywait(&sync_stuff.capacity[0])) {
                 //printf("Person %s got a seat in zone %d\n", person_id, 0);
                 zone_id = 0;
-                printf("Person %s got a seat in zone %c\n", person_id, team_int_to_char(zone_id));
+                printf(BMAG "Person %s got a seat in zone %c\n", person_id, team_int_to_char(zone_id));
             }
             else 
             if(!sem_trywait(&sync_stuff.capacity[1])) {
                 //printf("Person %s got a seat in zone %d\n", person_id, 1);
                 zone_id = 1;
-                printf("Person %s got a seat in zone %c\n", person_id, team_int_to_char(zone_id));
+                printf(BMAG "Person %s got a seat in zone %c\n", person_id, team_int_to_char(zone_id));
             }
             else 
             goto justincase;
@@ -79,17 +80,17 @@ void *spectator_thread(void *arg) {
         else if(i == 1){
             if(!sem_trywait(&sync_stuff.capacity[0])) {
                 zone_id = 0;
-                printf("Person %s got a seat in zone %c\n", person_id, team_int_to_char(zone_id));
+                printf(BMAG "Person %s got a seat in zone %c\n", person_id, team_int_to_char(zone_id));
             }
             else 
             if(!sem_trywait(&sync_stuff.capacity[1])) {
                 zone_id = 1;
-                printf("Person %s got a seat in zone %c\n", person_id, team_int_to_char(zone_id));
+                printf(BMAG "Person %s got a seat in zone %c\n", person_id, team_int_to_char(zone_id));
             }
             else 
             if(!sem_trywait(&sync_stuff.capacity[2])) {
                 zone_id = 2;
-                printf("Person %s got a seat in zone %c\n", person_id, team_int_to_char(zone_id));
+                printf(BMAG "Person %s got a seat in zone %c\n", person_id, team_int_to_char(zone_id));
             }
             else
             goto justincase;
@@ -97,7 +98,7 @@ void *spectator_thread(void *arg) {
         else{
             if(!sem_trywait(&sync_stuff.capacity[2])) {
                 zone_id = 2;
-                printf("Person %s got a seat in zone %c\n", person_id, team_int_to_char(zone_id));
+                printf(BMAG "Person %s got a seat in zone %c\n", person_id, team_int_to_char(zone_id));
             }
             else
             goto justincase;
@@ -124,12 +125,12 @@ void *spectator_thread(void *arg) {
         pthread_mutex_unlock(&sync_stuff.goal_cond_mutex);
 
         if(rt == ETIMEDOUT){
-            printf("Person %s watched the match for %d seconds and is leaving\n", person_id, spectating_time);
+            printf(BYEL "Person %s watched the match for %d seconds and is leaving\n", person_id, spectating_time);
             goto end;
         }
 
         if(sync_stuff.goals_count[team_char_to_int(p->type)] >= p->goal_limit){
-            printf("Person %s is leaving due to the bad defensive performance of his team\n", person_id);
+            printf(BYEL "Person %s is leaving due to the bad defensive performance of his team\n", person_id);
             goto end;
         }
         else goto restarting;
@@ -149,7 +150,7 @@ void *goal_thread(void *arg) {
     int chance = store->prob*100;
 
     if((rand()%100) < chance){
-        printf("Team %c have scored their %dth goal\n", store->team_id, (sync_stuff.goals_count[team_char_to_int(store->team_id)]+1));
+        printf(BRED "Team %c have scored their %dth goal\n", store->team_id, (sync_stuff.goals_count[team_char_to_int(store->team_id)]+1));
         
         pthread_mutex_lock(&sync_stuff.goals_count_mutex);
         sync_stuff.goals_count[team_char_to_int(store->team_id)]++;        
@@ -158,7 +159,7 @@ void *goal_thread(void *arg) {
         pthread_cond_broadcast(&sync_stuff.goal_cond);
     }
     else {
-        printf("Team %c missed the chance to score their %dth goal\n", store->team_id, (sync_stuff.goals_count[team_char_to_int(store->team_id)]+1));
+        printf(BRED "Team %c missed the chance to score their %dth goal\n", store->team_id, (sync_stuff.goals_count[team_char_to_int(store->team_id)]+1));
     } 
 }
 
@@ -179,6 +180,7 @@ void *zone_thread(void *arg){
 
             //printf("Am i useful ?\n");
             if(i == 0){
+                sem_post(&sync_stuff.capacity[i]);
                 //pthread_mutex_lock(&sync_stuff.fans_type_mutex[0]);
                 pthread_cond_signal(&sync_stuff.fans_type[0]);
                 //pthread_mutex_unlock(&sync_stuff.fans_type_mutex[0]);
@@ -186,8 +188,10 @@ void *zone_thread(void *arg){
                 //pthread_mutex_lock(&sync_stuff.fans_type_mutex[1]);
                 pthread_cond_signal(&sync_stuff.fans_type[1]);
                 //pthread_mutex_unlock(&sync_stuff.fans_type_mutex[1]);
+                
             }
             else if(i == 1){
+                sem_post(&sync_stuff.capacity[i]);
                 //pthread_mutex_lock(&sync_stuff.fans_type_mutex[0]);
                 pthread_cond_signal(&sync_stuff.fans_type[0]);
                 //pthread_mutex_unlock(&sync_stuff.fans_type_mutex[0]);
@@ -195,8 +199,10 @@ void *zone_thread(void *arg){
                 //pthread_mutex_lock(&sync_stuff.fans_type_mutex[1]);
                 pthread_cond_signal(&sync_stuff.fans_type[1]);
                 //pthread_mutex_unlock(&sync_stuff.fans_type_mutex[1]);
+                
             }
             else if(i == 2){
+                sem_post(&sync_stuff.capacity[i]);
                 //pthread_mutex_lock(&sync_stuff.fans_type_mutex[1]);
                 pthread_cond_signal(&sync_stuff.fans_type[1]);
                 //pthread_mutex_unlock(&sync_stuff.fans_type_mutex[1]);
@@ -204,6 +210,7 @@ void *zone_thread(void *arg){
                 //pthread_mutex_lock(&sync_stuff.fans_type_mutex[2]);
                 pthread_cond_signal(&sync_stuff.fans_type[2]);
                 //pthread_mutex_unlock(&sync_stuff.fans_type_mutex[2]);
+                
             }
 
             
@@ -211,7 +218,7 @@ void *zone_thread(void *arg){
 
             //printf("Zone %d has %d people before incrementing\n", i, val);
             
-            sem_post(&sync_stuff.capacity[i]);
+            
             
             
             sem_getvalue(&sync_stuff.capacity[i], &val);
@@ -296,9 +303,12 @@ int main(){
 
     pthread_t *spec_threads = (pthread_t*)malloc(total_people * sizeof(pthread_t));
 
+    int index=0;
+
     f(num_groups){
         f1(groups[i].size){
-            pthread_create(&spec_threads[i1], NULL, &spectator_thread, &groups[i].members[i1]);
+            pthread_create(&spec_threads[index], NULL, &spectator_thread, &groups[i].members[i1]);
+            index++;
         }
     }
 
